@@ -9,7 +9,7 @@ export interface SearchResult {
 export function searchPeople(
   query: string,
   people: Record<string, PersonRecord>,
-  limit: number
+  limit: number,
 ): { results: SearchResult[]; totalMatches: number } {
   const q = query.trim().toLowerCase()
   if (!q) return { results: [], totalMatches: 0 }
@@ -54,7 +54,8 @@ function scorePerson(q: string, p: PersonRecord): number {
     title.includes(q) ||
     geo.includes(q) ||
     country.includes(q)
-  ) return 100
+  )
+    return 100
 
   return 0
 }

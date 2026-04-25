@@ -24,28 +24,38 @@ export function SearchBar() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     if (!query.trim() || !effectiveState) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults([])
       setTotalMatches(0)
       setIsOpen(false)
       return
     }
     debounceRef.current = setTimeout(() => {
-      const { results: r, totalMatches: t } = searchPeople(query, effectiveState.people, MAX_RESULTS)
+      const { results: r, totalMatches: t } = searchPeople(
+        query,
+        effectiveState.people,
+        MAX_RESULTS,
+      )
       setResults(r)
       setTotalMatches(t)
       setSelectedIndex(0)
       setIsOpen(r.length > 0)
     }, DEBOUNCE_MS)
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [query, effectiveState])
 
-  const selectResult = useCallback((result: SearchResult) => {
-    navigateToNode(result.uid)
-    setQuery('')
-    setResults([])
-    setIsOpen(false)
-    inputRef.current?.blur()
-  }, [navigateToNode])
+  const selectResult = useCallback(
+    (result: SearchResult) => {
+      navigateToNode(result.uid)
+      setQuery('')
+      setResults([])
+      setIsOpen(false)
+      inputRef.current?.blur()
+    },
+    [navigateToNode],
+  )
 
   const clearSearch = useCallback(() => {
     setQuery('')
@@ -55,22 +65,25 @@ export function SearchBar() {
   }, [])
 
   // Keyboard handling on the input
-  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!isOpen) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSelectedIndex((i) => (i + 1) % results.length)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSelectedIndex((i) => (i - 1 + results.length) % results.length)
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (results[selectedIndex]) selectResult(results[selectedIndex])
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      clearSearch()
-    }
-  }, [isOpen, results, selectedIndex, selectResult, clearSearch])
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (!isOpen) return
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedIndex((i) => (i + 1) % results.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedIndex((i) => (i - 1 + results.length) % results.length)
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        if (results[selectedIndex]) selectResult(results[selectedIndex])
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        clearSearch()
+      }
+    },
+    [isOpen, results, selectedIndex, selectResult, clearSearch],
+  )
 
   // Global hotkeys
   useEffect(() => {
@@ -96,8 +109,10 @@ export function SearchBar() {
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-        inputRef.current && !inputRef.current.contains(e.target as Node)
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
       ) {
         setIsOpen(false)
       }
@@ -112,28 +127,30 @@ export function SearchBar() {
   return (
     <div className="relative w-full max-w-sm">
       {/* Input */}
-      <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 focus-within:border-blue-400 focus-within:bg-white transition-colors">
-        <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+      <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 transition-colors focus-within:border-blue-400 focus-within:bg-white">
+        <Search className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
-          onFocus={() => { if (results.length > 0) setIsOpen(true) }}
+          onFocus={() => {
+            if (results.length > 0) setIsOpen(true)
+          }}
           placeholder="Search people…"
-          className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none min-w-0"
+          className="min-w-0 flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none"
           aria-label="Search people"
           aria-autocomplete="list"
           aria-expanded={isOpen}
         />
         {!query && (
-          <span className="text-xs text-gray-300 font-mono flex-shrink-0">{hintText}</span>
+          <span className="flex-shrink-0 font-mono text-xs text-gray-300">{hintText}</span>
         )}
         {query && (
           <button
             onClick={clearSearch}
-            className="text-gray-300 hover:text-gray-500 text-xs leading-none flex-shrink-0"
+            className="flex-shrink-0 text-xs leading-none text-gray-300 hover:text-gray-500"
             aria-label="Clear search"
           >
             ✕
@@ -145,10 +162,10 @@ export function SearchBar() {
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
+          className="absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
         >
           {/* Result count */}
-          <div className="px-3 py-1.5 border-b border-gray-100 text-xs text-gray-400">
+          <div className="border-b border-gray-100 px-3 py-1.5 text-xs text-gray-400">
             {totalMatches <= MAX_RESULTS
               ? `${totalMatches} match${totalMatches === 1 ? '' : 'es'}`
               : `Showing ${MAX_RESULTS} of ${totalMatches} matches`}
@@ -186,16 +203,16 @@ function ResultItem({ result, isHighlighted, onSelect, onHover }: ResultItemProp
     <li
       role="option"
       aria-selected={isHighlighted}
-      className={`px-3 py-2 cursor-pointer select-none ${isHighlighted ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+      className={`cursor-pointer px-3 py-2 select-none ${isHighlighted ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
       onMouseDown={(e) => e.preventDefault()} // prevent input blur before click fires
       onClick={onSelect}
       onMouseMove={onHover}
     >
       <div className="flex items-baseline gap-1.5">
         <span className="text-sm font-medium text-gray-900">{person.cn}</span>
-        <span className="text-xs text-gray-400 flex-shrink-0">@{person.uid}</span>
+        <span className="flex-shrink-0 text-xs text-gray-400">@{person.uid}</span>
       </div>
-      <div className="text-xs text-gray-400 truncate mt-0.5">
+      <div className="mt-0.5 truncate text-xs text-gray-400">
         {[person.rhatJobTitle, location].filter(Boolean).join(' · ')}
       </div>
     </li>

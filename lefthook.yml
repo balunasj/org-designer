@@ -1,0 +1,11 @@
+pre-commit:
+  parallel: true
+  commands:
+    typecheck:
+      run: npx tsc --noEmit -p tsconfig.app.json
+    lint:
+      glob: '*.{ts,tsx}'
+      run: npx eslint --fix {staged_files} && git add {staged_files}
+    format:
+      glob: '*.{ts,tsx,css,json,md,yml}'
+      run: npx prettier --write {staged_files} && git add {staged_files}

@@ -1,7 +1,19 @@
-import { memo, useRef, useState } from 'react'
+import { memo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Handle, Position } from '@xyflow/react'
-import { ChevronDown, ChevronRight, ChevronLeft, Users, MoreVertical, ChevronsLeftRight, ChevronsRightLeft, ChevronsUpDown, Plus, Pencil, Trash2 } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  Users,
+  MoreVertical,
+  ChevronsLeftRight,
+  ChevronsRightLeft,
+  ChevronsUpDown,
+  Plus,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
 import { roleColor } from '@/lib/role-colors'
 import { roleAbbreviation } from '@/lib/role-abbreviation'
 import { teamColor } from '@/lib/team-colors'
@@ -57,12 +69,17 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
   const abbr = roleAbbreviation(data.rhatJobTitle)
 
   const [dialogMode, setDialogMode] = useState<'add' | 'edit' | null>(null)
-  const menuBtnRef = useRef<HTMLButtonElement>(null)
+  const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLButtonElement | null>(null)
   const isPlaceholder = id.startsWith('placeholder-')
 
   const fields = data.cardFields ?? {
-    title: true, location: true, city: false, hireDate: false,
-    tenure: false, team: false, reportCounts: true,
+    title: true,
+    location: true,
+    city: false,
+    hireDate: false,
+    tenure: false,
+    team: false,
+    reportCounts: true,
   }
   const direction = data.direction ?? 'TB'
   const isLR = direction === 'LR'
@@ -81,12 +98,7 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
   return (
     <>
       <div
-        className={`
-          relative bg-white rounded-lg shadow-sm border-2 select-none cursor-pointer
-          transition-shadow hover:shadow-md
-          ${isSelected ? 'border-blue-500 shadow-blue-200' : 'border-gray-200'}
-          ${data.isManager ? 'border-l-4' : ''}
-        `}
+        className={`relative cursor-pointer rounded-lg border-2 bg-white shadow-sm transition-shadow select-none hover:shadow-md ${isSelected ? 'border-blue-500 shadow-blue-200' : 'border-gray-200'} ${data.isManager ? 'border-l-4' : ''} `}
         onDoubleClick={(e) => {
           e.stopPropagation()
           if (data.hasChildren) toggleExpanded(id)
@@ -99,12 +111,16 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
           transition: 'opacity 0.2s ease',
         }}
       >
-        <Handle type="target" position={targetPos} className="!bg-gray-300 !border-gray-400 !w-2 !h-2" />
+        <Handle
+          type="target"
+          position={targetPos}
+          className="!h-2 !w-2 !border-gray-400 !bg-gray-300"
+        />
 
         {/* Role color accent bar for ICs */}
         {!data.isManager && (
           <div
-            className="absolute top-0 left-0 right-0 h-1 rounded-t-lg"
+            className="absolute top-0 right-0 left-0 h-1 rounded-t-lg"
             style={{ backgroundColor: color }}
           />
         )}
@@ -112,43 +128,54 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
         {/* Context menu button */}
         <div className="absolute top-1 right-1 z-10">
           <button
-            ref={menuBtnRef}
-            className="w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors"
-            onClick={(e) => { e.stopPropagation(); setOpenMenu(menuOpen ? null : id) }}
+            className="flex h-5 w-5 items-center justify-center rounded text-gray-300 transition-colors hover:bg-gray-100 hover:text-gray-500"
+            onClick={(e) => {
+              e.stopPropagation()
+              setMenuAnchorEl(menuOpen ? null : e.currentTarget)
+              setOpenMenu(menuOpen ? null : id)
+            }}
             title="Options"
           >
-            <MoreVertical className="w-3.5 h-3.5" />
+            <MoreVertical className="h-3.5 w-3.5" />
           </button>
         </div>
 
         {/* Menu dropdown — portaled to body so it floats above all ReactFlow nodes */}
-        {menuOpen && menuBtnRef.current && createPortal(
-          <ContextMenuDropdown
-            btnEl={menuBtnRef.current}
-            id={id}
-            data={data}
-            isViewRoot={isViewRoot}
-            isPeerHidden={isPeerHidden}
-            setViewRoot={setViewRoot}
-            togglePeerVisibility={togglePeerVisibility}
-            toggleExpanded={toggleExpanded}
-            setOpenMenu={setOpenMenu}
-            isPlaceholder={isPlaceholder}
-            onAddReport={() => { setOpenMenu(null); setDialogMode('add') }}
-            onEditReport={() => { setOpenMenu(null); setDialogMode('edit') }}
-            onDelete={handleDelete}
-          />,
-          document.body
-        )}
+        {menuOpen &&
+          menuAnchorEl &&
+          createPortal(
+            <ContextMenuDropdown
+              btnEl={menuAnchorEl}
+              id={id}
+              data={data}
+              isViewRoot={isViewRoot}
+              isPeerHidden={isPeerHidden}
+              setViewRoot={setViewRoot}
+              togglePeerVisibility={togglePeerVisibility}
+              toggleExpanded={toggleExpanded}
+              setOpenMenu={setOpenMenu}
+              isPlaceholder={isPlaceholder}
+              onAddReport={() => {
+                setOpenMenu(null)
+                setDialogMode('add')
+              }}
+              onEditReport={() => {
+                setOpenMenu(null)
+                setDialogMode('edit')
+              }}
+              onDelete={handleDelete}
+            />,
+            document.body,
+          )}
 
         <div className="px-3 pt-2 pb-2">
           {/* Name + badge row */}
           <div className="flex items-start justify-between gap-1 pr-4">
-            <div className="font-semibold text-gray-900 text-sm leading-tight truncate flex-1">
+            <div className="flex-1 truncate text-sm leading-tight font-semibold text-gray-900">
               {data.cn}
             </div>
             <span
-              className="text-xs font-mono px-1.5 py-0.5 rounded flex-shrink-0 text-white"
+              className="flex-shrink-0 rounded px-1.5 py-0.5 font-mono text-xs text-white"
               style={{ backgroundColor: color }}
               title={data.rhatJobTitle}
             >
@@ -158,42 +185,38 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
 
           {/* Job title */}
           {fields.title && (
-            <div className="text-xs text-gray-500 truncate mt-0.5" title={data.rhatJobTitle}>
+            <div className="mt-0.5 truncate text-xs text-gray-500" title={data.rhatJobTitle}>
               {data.rhatJobTitle || '—'}
             </div>
           )}
 
           {/* Location (geo · country) */}
           {fields.location && (
-            <div className="text-xs text-gray-400 mt-0.5 truncate">
+            <div className="mt-0.5 truncate text-xs text-gray-400">
               {data.rhatGeo} · {data.co}
             </div>
           )}
 
           {/* City */}
-          {fields.city && data.l && (
-            <div className="text-xs text-gray-400 truncate">{data.l}</div>
-          )}
+          {fields.city && data.l && <div className="truncate text-xs text-gray-400">{data.l}</div>}
 
           {/* Hire date */}
           {fields.hireDate && data.rhatHireDate && (
-            <div className="text-xs text-gray-400 truncate">
+            <div className="truncate text-xs text-gray-400">
               Hired {formatHireDate(data.rhatHireDate)}
             </div>
           )}
 
           {/* Tenure */}
           {fields.tenure && data.rhatHireDate && (
-            <div className="text-xs text-gray-400 truncate">
-              {formatTenure(data.rhatHireDate)}
-            </div>
+            <div className="truncate text-xs text-gray-400">{formatTenure(data.rhatHireDate)}</div>
           )}
 
           {/* Team */}
           {fields.team && data.teamId && (
-            <div className="flex items-center gap-1 text-xs text-gray-400 truncate mt-0.5">
+            <div className="mt-0.5 flex items-center gap-1 truncate text-xs text-gray-400">
               <span
-                className="w-2 h-2 rounded-full flex-shrink-0"
+                className="h-2 w-2 flex-shrink-0 rounded-full"
                 style={{ backgroundColor: teamColor(data.teamId) }}
               />
               <span className="truncate">{data.teamName ?? data.teamId}</span>
@@ -202,8 +225,8 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
 
           {/* Report counts — managers only */}
           {fields.reportCounts && data.isManager && (
-            <div className="flex items-center justify-end gap-1 text-xs text-gray-500 mt-1">
-              <Users className="w-3 h-3" />
+            <div className="mt-1 flex items-center justify-end gap-1 text-xs text-gray-500">
+              <Users className="h-3 w-3" />
               <span>{data.directReports}</span>
               <span className="text-gray-300">/</span>
               <span>{data.totalReports}</span>
@@ -214,10 +237,8 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
         {/* Expand/collapse toggle — bottom-center in TB, right-center in LR */}
         {data.hasChildren && (
           <button
-            className={`absolute w-6 h-6 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-50 shadow-sm z-10 ${
-              isLR
-                ? 'top-1/2 -right-3 -translate-y-1/2'
-                : '-bottom-3 left-1/2 -translate-x-1/2'
+            className={`absolute z-10 flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 bg-white shadow-sm hover:bg-gray-50 ${
+              isLR ? 'top-1/2 -right-3 -translate-y-1/2' : '-bottom-3 left-1/2 -translate-x-1/2'
             }`}
             onClick={(e) => {
               e.stopPropagation()
@@ -225,13 +246,15 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
             }}
           >
             {isLR ? (
-              data.isExpanded
-                ? <ChevronRight className="w-3 h-3 text-gray-500" />
-                : <ChevronLeft className="w-3 h-3 text-gray-500" />
+              data.isExpanded ? (
+                <ChevronRight className="h-3 w-3 text-gray-500" />
+              ) : (
+                <ChevronLeft className="h-3 w-3 text-gray-500" />
+              )
+            ) : data.isExpanded ? (
+              <ChevronDown className="h-3 w-3 text-gray-500" />
             ) : (
-              data.isExpanded
-                ? <ChevronDown className="w-3 h-3 text-gray-500" />
-                : <ChevronRight className="w-3 h-3 text-gray-500" />
+              <ChevronRight className="h-3 w-3 text-gray-500" />
             )}
           </button>
         )}
@@ -239,12 +262,10 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
         {/* Peer visibility toggle — right-center in TB, bottom-center in LR */}
         {data.managerUid !== null && (
           <button
-            className={`absolute w-6 h-6 rounded-full bg-white border flex items-center justify-center hover:bg-gray-50 shadow-sm z-10 ${
+            className={`absolute z-10 flex h-6 w-6 items-center justify-center rounded-full border bg-white shadow-sm hover:bg-gray-50 ${
               isPeerHidden ? 'border-blue-400' : 'border-gray-300'
             } ${
-              isLR
-                ? '-bottom-3 left-1/2 -translate-x-1/2'
-                : 'top-1/2 -right-3 -translate-y-1/2'
+              isLR ? '-bottom-3 left-1/2 -translate-x-1/2' : 'top-1/2 -right-3 -translate-y-1/2'
             }`}
             title={isPeerHidden ? 'Show peers' : 'Hide peers'}
             onClick={(e) => {
@@ -253,29 +274,36 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
             }}
           >
             {isLR ? (
-              isPeerHidden
-                ? <ChevronsUpDown className="w-3 h-3 text-blue-500" />
-                : <ChevronsUpDown className="w-3 h-3 text-gray-400" />
+              isPeerHidden ? (
+                <ChevronsUpDown className="h-3 w-3 text-blue-500" />
+              ) : (
+                <ChevronsUpDown className="h-3 w-3 text-gray-400" />
+              )
+            ) : isPeerHidden ? (
+              <ChevronsLeftRight className="h-3 w-3 text-blue-500" />
             ) : (
-              isPeerHidden
-                ? <ChevronsLeftRight className="w-3 h-3 text-blue-500" />
-                : <ChevronsRightLeft className="w-3 h-3 text-gray-400" />
+              <ChevronsRightLeft className="h-3 w-3 text-gray-400" />
             )}
           </button>
         )}
 
-        <Handle type="source" position={sourcePos} className="!bg-gray-300 !border-gray-400 !w-2 !h-2" />
+        <Handle
+          type="source"
+          position={sourcePos}
+          className="!h-2 !w-2 !border-gray-400 !bg-gray-300"
+        />
       </div>
 
       {/* Add/Edit person dialog — portaled to body so it floats above all ReactFlow nodes */}
-      {dialogMode && createPortal(
-        <AddPersonDialog
-          managerUid={id}
-          editPerson={dialogMode === 'edit' ? data as PersonRecord : undefined}
-          onClose={() => setDialogMode(null)}
-        />,
-        document.body
-      )}
+      {dialogMode &&
+        createPortal(
+          <AddPersonDialog
+            managerUid={id}
+            editPerson={dialogMode === 'edit' ? (data as PersonRecord) : undefined}
+            onClose={() => setDialogMode(null)}
+          />,
+          document.body,
+        )}
     </>
   )
 })
@@ -299,20 +327,30 @@ interface ContextMenuDropdownProps {
 }
 
 function ContextMenuDropdown({
-  btnEl, id, data, isViewRoot, isPeerHidden, isPlaceholder,
-  setViewRoot, togglePeerVisibility, toggleExpanded, setOpenMenu,
-  onAddReport, onEditReport, onDelete,
+  btnEl,
+  id,
+  data,
+  isViewRoot,
+  isPeerHidden,
+  isPlaceholder,
+  setViewRoot,
+  togglePeerVisibility,
+  toggleExpanded,
+  setOpenMenu,
+  onAddReport,
+  onEditReport,
+  onDelete,
 }: ContextMenuDropdownProps) {
   const rect = btnEl.getBoundingClientRect()
 
   return (
     <div
-      className="fixed bg-white border border-gray-200 rounded shadow-lg py-1 min-w-[160px]"
+      className="fixed min-w-[160px] rounded border border-gray-200 bg-white py-1 shadow-lg"
       style={{ top: rect.bottom + 2, left: rect.right - 160, zIndex: 9999 }}
     >
       {data.managerUid !== null && (
         <button
-          className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
           onClick={(e) => {
             e.stopPropagation()
             if (isViewRoot) {
@@ -328,7 +366,7 @@ function ContextMenuDropdown({
         </button>
       )}
       <button
-        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+        className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
         onClick={(e) => {
           e.stopPropagation()
           togglePeerVisibility(id)
@@ -339,7 +377,7 @@ function ContextMenuDropdown({
       </button>
       {data.hasChildren && (
         <button
-          className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
           onClick={(e) => {
             e.stopPropagation()
             toggleExpanded(id)
@@ -350,32 +388,32 @@ function ContextMenuDropdown({
         </button>
       )}
 
-      <div className="border-t border-gray-100 my-1" />
+      <div className="my-1 border-t border-gray-100" />
 
       <button
-        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
         onClick={onAddReport}
       >
-        <Plus className="w-3 h-3 text-gray-400" />
+        <Plus className="h-3 w-3 text-gray-400" />
         Add new report
       </button>
 
       {isPlaceholder && (
         <button
-          className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
           onClick={onEditReport}
         >
-          <Pencil className="w-3 h-3 text-gray-400" />
+          <Pencil className="h-3 w-3 text-gray-400" />
           Edit card
         </button>
       )}
 
       {data.managerUid !== null && (
         <button
-          className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
           onClick={onDelete}
         >
-          <Trash2 className="w-3 h-3" />
+          <Trash2 className="h-3 w-3" />
           Delete
         </button>
       )}

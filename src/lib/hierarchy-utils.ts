@@ -2,7 +2,7 @@ import type { PersonRecord } from '@/types/person'
 
 /** Build a parent→children lookup in a single O(n) scan. */
 export function buildChildrenMap(
-  people: Record<string, { managerUid: string | null }>
+  people: Record<string, { managerUid: string | null }>,
 ): Map<string, string[]> {
   const map = new Map<string, string[]>()
   for (const [id, p] of Object.entries(people)) {
@@ -19,7 +19,7 @@ export function buildChildrenMap(
 export function getSubtreeIds(
   rootUid: string,
   people: Record<string, { managerUid: string | null }>,
-  childrenMap?: Map<string, string[]>
+  childrenMap?: Map<string, string[]>,
 ): Set<string> {
   const map = childrenMap ?? buildChildrenMap(people)
   const result = new Set<string>()
@@ -37,7 +37,7 @@ export function getSubtreeIds(
 export function getSubtreePeople(
   rootUid: string | null,
   people: Record<string, PersonRecord>,
-  childrenMap?: Map<string, string[]>
+  childrenMap?: Map<string, string[]>,
 ): PersonRecord[] {
   if (rootUid === null) return Object.values(people)
   const ids = getSubtreeIds(rootUid, people, childrenMap)

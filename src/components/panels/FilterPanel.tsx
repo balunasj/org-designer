@@ -18,7 +18,8 @@ export function FilterPanel() {
       geos: [...new Set(people.map((p) => p.rhatGeo).filter(Boolean))].sort(),
       countries: [...new Set(people.map((p) => p.co).filter(Boolean))].sort(),
       managers: people.filter((p) => p.directReports > 0).sort((a, b) => a.cn.localeCompare(b.cn)),
-      teams: teamIds.map((id) => ({ id, name: effectiveState.teams[id]?.name ?? id }))
+      teams: teamIds
+        .map((id) => ({ id, name: effectiveState.teams[id]?.name ?? id }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     }
   }, [effectiveState])
@@ -38,23 +39,23 @@ export function FilterPanel() {
   }
 
   return (
-    <div className="p-3 space-y-4 overflow-y-auto">
+    <div className="space-y-4 overflow-y-auto p-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Filters</span>
+        <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">Filters</span>
         {hasFilters && (
           <button
             onClick={clearFilters}
-            className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+            className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
           >
-            <X className="w-3 h-3" /> Clear all
+            <X className="h-3 w-3" /> Clear all
           </button>
         )}
       </div>
 
       {/* Mode toggle */}
       <div>
-        <div className="text-xs text-gray-500 mb-1.5">Filter mode</div>
-        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+        <div className="mb-1.5 text-xs text-gray-500">Filter mode</div>
+        <div className="flex overflow-hidden rounded-lg border border-gray-200 text-xs">
           {(['highlight', 'hide'] as const).map((mode) => (
             <button
               key={mode}
@@ -73,13 +74,13 @@ export function FilterPanel() {
 
       {/* Title search */}
       <div>
-        <label className="text-xs text-gray-500 block mb-1">Title contains</label>
+        <label className="mb-1 block text-xs text-gray-500">Title contains</label>
         <input
           type="text"
           value={filters.titleSearch}
           onChange={(e) => setFilters({ titleSearch: e.target.value })}
           placeholder="e.g. Engineer, Manager..."
-          className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+          className="w-full rounded border border-gray-200 px-2 py-1.5 text-xs focus:border-blue-400 focus:outline-none"
         />
       </div>
 
@@ -93,7 +94,7 @@ export function FilterPanel() {
 
       {/* Job Role */}
       <div>
-        <div className="text-xs text-gray-500 mb-1.5">Job Role</div>
+        <div className="mb-1.5 text-xs text-gray-500">Job Role</div>
         <div className="flex flex-wrap gap-1">
           {ROLE_LABELS.filter((r) => r.role !== 'Unknown').map(({ role, color }) => {
             const active = filters.jobRoles.includes(role)
@@ -101,8 +102,8 @@ export function FilterPanel() {
               <button
                 key={role}
                 onClick={() => toggleMulti('jobRoles', role)}
-                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                  active ? 'text-white' : 'bg-white text-gray-600 border-gray-200'
+                className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                  active ? 'text-white' : 'border-gray-200 bg-white text-gray-600'
                 }`}
                 style={active ? { backgroundColor: color, borderColor: color } : undefined}
               >
@@ -124,7 +125,7 @@ export function FilterPanel() {
       {/* Team */}
       {teams.length > 0 && (
         <div>
-          <div className="text-xs text-gray-500 mb-1.5">Team</div>
+          <div className="mb-1.5 text-xs text-gray-500">Team</div>
           <div className="flex flex-wrap gap-1">
             {teams.map(({ id, name }) => {
               const active = filters.teams.includes(id)
@@ -133,13 +134,13 @@ export function FilterPanel() {
                 <button
                   key={id}
                   onClick={() => toggleMulti('teams', id)}
-                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors flex items-center gap-1 ${
-                    active ? 'text-white' : 'bg-white text-gray-600 border-gray-200'
+                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                    active ? 'text-white' : 'border-gray-200 bg-white text-gray-600'
                   }`}
                   style={active ? { backgroundColor: color, borderColor: color } : undefined}
                 >
                   <span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
                     style={{ backgroundColor: active ? 'rgba(255,255,255,0.7)' : color }}
                   />
                   {name}
@@ -152,11 +153,11 @@ export function FilterPanel() {
 
       {/* Manager */}
       <div>
-        <label className="text-xs text-gray-500 block mb-1">Under manager</label>
+        <label className="mb-1 block text-xs text-gray-500">Under manager</label>
         <select
           value={filters.managerUid ?? ''}
           onChange={(e) => setFilters({ managerUid: e.target.value || null })}
-          className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+          className="w-full rounded border border-gray-200 px-2 py-1.5 text-xs focus:border-blue-400 focus:outline-none"
         >
           <option value="">All managers</option>
           {managers.map((m) => (
@@ -183,16 +184,16 @@ function ChipGroup({
 }) {
   return (
     <div>
-      <div className="text-xs text-gray-500 mb-1.5">{title}</div>
+      <div className="mb-1.5 text-xs text-gray-500">{title}</div>
       <div className="flex flex-wrap gap-1">
         {options.map((opt) => (
           <button
             key={opt}
             onClick={() => onToggle(opt)}
-            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+            className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
               selected.includes(opt)
-                ? 'bg-blue-500 text-white border-blue-500'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                ? 'border-blue-500 bg-blue-500 text-white'
+                : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300'
             }`}
           >
             {opt}

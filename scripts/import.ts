@@ -33,10 +33,7 @@ const FASTROVER_PATH =
   (fs.existsSync(LOCAL_ALL_USERS) ? LOCAL_ALL_USERS : FASTROVER_FALLBACK)
 const ORG_FLEET_PATH =
   process.env.ORG_FLEET_PATH ??
-  path.join(
-    process.env.HOME!,
-    'Projects/org/config/structures/hybrid_platforms/fleet'
-  )
+  path.join(process.env.HOME!, 'Projects/org/config/structures/hybrid_platforms/fleet')
 
 // ── Types for raw fastrover data ───────────────────────────────────────────
 
@@ -68,7 +65,10 @@ interface YamlGroup {
   parent?: string
   type?: { name?: string }
   roles?: YamlRoleDef[]
-  people?: { select?: Array<{ include?: Array<{ args?: { group?: string }; func?: string }> }>; ids?: string[] }
+  people?: {
+    select?: Array<{ include?: Array<{ args?: { group?: string }; func?: string }> }>
+    ids?: string[]
+  }
 }
 
 interface YamlFile {
@@ -99,7 +99,8 @@ for (const u of allUsers) {
 
 // Auto-detect org root: the person with no manager or a self-referencing one
 const rootUser = allUsers.find((u) => !u.manager || u.manager === u.uid)
-if (!rootUser) throw new Error('Could not detect org root — no user with missing or self-referencing manager')
+if (!rootUser)
+  throw new Error('Could not detect org root — no user with missing or self-referencing manager')
 const rootUid = rootUser.uid
 console.log(`Building org from detected root: ${rootUser.cn} (${rootUid})`)
 

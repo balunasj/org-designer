@@ -27,7 +27,7 @@ export function BreadcrumbBar() {
   }
 
   return (
-    <_BreadcrumbBarInner
+    <BreadcrumbBarInner
       chain={chain}
       activeUid={activeUid}
       people={people}
@@ -49,9 +49,14 @@ interface InnerProps {
   setCollapsed: (v: boolean) => void
 }
 
-function _BreadcrumbBarInner({
-  chain, activeUid, people, setSelected,
-  containerRef, collapsed, setCollapsed,
+function BreadcrumbBarInner({
+  chain,
+  activeUid,
+  people,
+  setSelected,
+  containerRef,
+  collapsed,
+  setCollapsed,
 }: InnerProps) {
   // Detect overflow and collapse middle items when needed
   useEffect(() => {
@@ -65,7 +70,9 @@ function _BreadcrumbBarInner({
   }, [chain, containerRef, setCollapsed])
 
   // When chain changes, reset to uncollapsed so we re-measure
-  useEffect(() => { setCollapsed(false) }, [chain, setCollapsed])
+  useEffect(() => {
+    setCollapsed(false)
+  }, [chain, setCollapsed])
 
   const first = chain[0]
   const last = chain[chain.length - 1]
@@ -76,14 +83,16 @@ function _BreadcrumbBarInner({
     const isActive = uid === activeUid
     const name = people[uid]?.cn ?? uid
     return (
-      <span key={uid} className="flex items-center gap-1 flex-shrink-0">
-        {i > 0 && <ChevronRight className="w-3 h-3 text-gray-300" />}
+      <span key={uid} className="flex flex-shrink-0 items-center gap-1">
+        {i > 0 && <ChevronRight className="h-3 w-3 text-gray-300" />}
         {isActive ? (
-          <span className="text-gray-700 font-medium truncate max-w-[200px]" title={name}>{name}</span>
+          <span className="max-w-[200px] truncate font-medium text-gray-700" title={name}>
+            {name}
+          </span>
         ) : (
           <button
             onClick={() => setSelected(uid)}
-            className="text-blue-600 hover:underline whitespace-nowrap"
+            className="whitespace-nowrap text-blue-600 hover:underline"
             title={name}
           >
             {name}
@@ -96,7 +105,7 @@ function _BreadcrumbBarInner({
   return (
     <div
       ref={containerRef}
-      className="h-8 border-b border-gray-200 bg-white flex items-center px-4 gap-1 text-xs flex-shrink-0 overflow-hidden"
+      className="flex h-8 flex-shrink-0 items-center gap-1 overflow-hidden border-b border-gray-200 bg-white px-4 text-xs"
     >
       {isSingleItem ? (
         renderItem(first, 0)
@@ -104,10 +113,10 @@ function _BreadcrumbBarInner({
         // Collapsed: show first > … > last
         <>
           {renderItem(first, 0)}
-          <span className="flex items-center gap-1 flex-shrink-0">
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <span className="text-gray-400 px-0.5">…</span>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
+          <span className="flex flex-shrink-0 items-center gap-1">
+            <ChevronRight className="h-3 w-3 text-gray-300" />
+            <span className="px-0.5 text-gray-400">…</span>
+            <ChevronRight className="h-3 w-3 text-gray-300" />
           </span>
           {renderItem(last, 1)}
         </>

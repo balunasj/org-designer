@@ -23,20 +23,30 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
   const [country, setCountry] = useState(editPerson?.co ?? '')
 
   const nameRef = useRef<HTMLInputElement>(null)
-  useEffect(() => { nameRef.current?.focus() }, [])
+  useEffect(() => {
+    nameRef.current?.focus()
+  }, [])
 
-  const geos = Array.from(new Set(
-    Object.values(effectiveState?.people ?? {}).map((p) => p.rhatGeo).filter(Boolean)
-  )).sort()
-  const countries = Array.from(new Set(
-    Object.values(effectiveState?.people ?? {}).map((p) => p.co).filter(Boolean)
-  )).sort()
+  const geos = Array.from(
+    new Set(
+      Object.values(effectiveState?.people ?? {})
+        .map((p) => p.rhatGeo)
+        .filter(Boolean),
+    ),
+  ).sort()
+  const countries = Array.from(
+    new Set(
+      Object.values(effectiveState?.people ?? {})
+        .map((p) => p.co)
+        .filter(Boolean),
+    ),
+  ).sort()
 
   const prevRole = useRef(role)
   useEffect(() => {
     if (title === prevRole.current) setTitle(role)
     prevRole.current = role
-  }, [role])
+  }, [role, title])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,15 +110,15 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
 
       <form
         onSubmit={handleSubmit}
-        className="relative bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm mx-4 p-5"
+        className="relative mx-4 w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-800">
             {isEdit ? 'Edit card' : 'Add new report'}
           </h2>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -128,7 +138,9 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
           <Field label="Role">
             <select value={role} onChange={(e) => setRole(e.target.value)} className="input-base">
               {ROLE_LABELS.filter((r) => r.role !== 'Unknown').map(({ role: r }) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>
+                  {r}
+                </option>
               ))}
             </select>
           </Field>
@@ -147,30 +159,42 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
             <Field label="Geo">
               <select value={geo} onChange={(e) => setGeo(e.target.value)} className="input-base">
                 <option value="">—</option>
-                {geos.map((g) => <option key={g} value={g}>{g}</option>)}
+                {geos.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
               </select>
             </Field>
             <Field label="Country">
-              <select value={country} onChange={(e) => setCountry(e.target.value)} className="input-base">
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="input-base"
+              >
                 <option value="">—</option>
-                {countries.map((c) => <option key={c} value={c}>{c}</option>)}
+                {countries.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
             </Field>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-5">
+        <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+            className="rounded border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!name.trim()}
-            className="px-3 py-1.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="rounded bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isEdit ? 'Save changes' : 'Add report'}
           </button>
@@ -183,7 +207,7 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs text-gray-500 mb-1">{label}</label>
+      <label className="mb-1 block text-xs text-gray-500">{label}</label>
       {children}
     </div>
   )

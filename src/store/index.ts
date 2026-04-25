@@ -42,10 +42,10 @@ export interface UIState {
   selectedNodeIds: Set<string>
   pendingDeleteUids: string[] | null
   sidebarTab: 'metrics' | 'filters' | 'configure'
-  viewRootUid: string | null     // null = full org from baseline.rootUid
-  hiddenPeersOf: Set<string>    // uids whose siblings are hidden
-  fitViewTarget: string | null   // transient: OrgChart centers on this uid then clears it
-  openMenuNodeId: string | null  // which card's hamburger menu is open
+  viewRootUid: string | null // null = full org from baseline.rootUid
+  hiddenPeersOf: Set<string> // uids whose siblings are hidden
+  fitViewTarget: string | null // transient: OrgChart centers on this uid then clears it
+  openMenuNodeId: string | null // which card's hamburger menu is open
 }
 
 export interface AppState {
@@ -282,7 +282,7 @@ export const useAppStore = create<AppState>()(
 
     collapseAll: () => {
       const { ui, baseline } = get()
-      const root = ui.viewRootUid ?? (baseline?.rootUid ?? '')
+      const root = ui.viewRootUid ?? baseline?.rootUid ?? ''
       set({ ui: { ...ui, expandedNodes: new Set(root ? [root] : []) } })
     },
 
@@ -416,7 +416,9 @@ export const useAppStore = create<AppState>()(
         reassignTo: effectiveState.people[uid]?.managerUid ?? null,
         timestamp,
       }))
-      set({ ui: { ...ui, pendingDeleteUids: null, selectedNodeId: null, selectedNodeIds: new Set() } })
+      set({
+        ui: { ...ui, pendingDeleteUids: null, selectedNodeId: null, selectedNodeIds: new Set() },
+      })
       get().pushActions(actions)
     },
 
@@ -424,5 +426,5 @@ export const useAppStore = create<AppState>()(
       const { ui } = get()
       set({ ui: { ...ui, pendingDeleteUids: null } })
     },
-  }))
+  })),
 )

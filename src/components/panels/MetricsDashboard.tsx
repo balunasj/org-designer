@@ -13,12 +13,12 @@ interface StatCardProps {
 
 function StatCard({ label, value, sub, pending }: StatCardProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-3">
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
       <div className={`text-2xl font-bold text-gray-900 ${pending ? 'opacity-40' : ''}`}>
         {value}
       </div>
-      <div className="text-xs text-gray-500 mt-0.5">{label}</div>
-      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+      <div className="mt-0.5 text-xs text-gray-500">{label}</div>
+      {sub && <div className="mt-0.5 text-xs text-gray-400">{sub}</div>}
     </div>
   )
 }
@@ -49,7 +49,7 @@ export function MetricsDashboard() {
   // Pre-build the children map once per effectiveState — O(n) scan reused across renders
   const childrenMap = useMemo(
     () => (effectiveState ? buildChildrenMap(effectiveState.people) : null),
-    [effectiveState]
+    [effectiveState],
   )
 
   const metrics = useMemo(() => {
@@ -60,7 +60,8 @@ export function MetricsDashboard() {
     const ics = total - managers
     const ratio = managers > 0 ? (ics / managers).toFixed(1) : '—'
     const spans = people.filter((p) => p.directReports > 0).map((p) => p.directReports)
-    const avgSpan = spans.length > 0 ? (spans.reduce((a, b) => a + b, 0) / spans.length).toFixed(1) : '—'
+    const avgSpan =
+      spans.length > 0 ? (spans.reduce((a, b) => a + b, 0) / spans.length).toFixed(1) : '—'
 
     const byGeo = countBy(people, (p) => p.rhatGeo || 'Unknown')
     const byCountry = countBy(people, (p) => p.co || 'Unknown')
@@ -73,26 +74,37 @@ export function MetricsDashboard() {
   if (!metrics) return <div className="p-4 text-sm text-gray-400">No data loaded</div>
 
   return (
-    <div className="p-3 space-y-4 overflow-y-auto">
+    <div className="space-y-4 overflow-y-auto p-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide truncate">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className="truncate text-xs font-semibold tracking-wide text-gray-500 uppercase">
             {scopeLabel}
           </div>
           {isPending && (
             <svg
-              className="w-3 h-3 text-gray-400 animate-spin flex-shrink-0"
+              className="h-3 w-3 flex-shrink-0 animate-spin text-gray-400"
               viewBox="0 0 24 24"
               fill="none"
             >
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
             </svg>
           )}
         </div>
         {scopeRootUid && (
           <button
-            className="text-xs text-blue-500 hover:underline flex-shrink-0 ml-2"
+            className="ml-2 flex-shrink-0 text-xs text-blue-500 hover:underline"
             onClick={() => setSelected(null)}
           >
             Show all
@@ -100,13 +112,33 @@ export function MetricsDashboard() {
         )}
       </div>
 
-      <div className={`transition-opacity duration-150 ${isPending ? 'opacity-50' : 'opacity-100'}`}>
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <StatCard label="Total Associates" value={metrics.total.toLocaleString()} pending={isPending} />
-          <StatCard label="Managers" value={metrics.managers.toLocaleString()} pending={isPending} />
+      <div
+        className={`transition-opacity duration-150 ${isPending ? 'opacity-50' : 'opacity-100'}`}
+      >
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <StatCard
+            label="Total Associates"
+            value={metrics.total.toLocaleString()}
+            pending={isPending}
+          />
+          <StatCard
+            label="Managers"
+            value={metrics.managers.toLocaleString()}
+            pending={isPending}
+          />
           <StatCard label="ICs" value={metrics.ics.toLocaleString()} pending={isPending} />
-          <StatCard label="IC:Mgr Ratio" value={metrics.ratio} sub="ICs per manager" pending={isPending} />
-          <StatCard label="Avg Span" value={metrics.avgSpan} sub="direct reports/manager" pending={isPending} />
+          <StatCard
+            label="IC:Mgr Ratio"
+            value={metrics.ratio}
+            sub="ICs per manager"
+            pending={isPending}
+          />
+          <StatCard
+            label="Avg Span"
+            value={metrics.avgSpan}
+            sub="direct reports/manager"
+            pending={isPending}
+          />
         </div>
 
         <Section title="By Geo">
@@ -119,7 +151,13 @@ export function MetricsDashboard() {
 
         <Section title="By Role">
           {ROLE_LABELS.filter(({ role }) => metrics.byRole[role] > 0).map(({ role, color }) => (
-            <Bar key={role} label={role} count={metrics.byRole[role] ?? 0} total={metrics.total} color={color} />
+            <Bar
+              key={role}
+              label={role}
+              count={metrics.byRole[role] ?? 0}
+              total={metrics.total}
+              color={color}
+            />
           ))}
         </Section>
 
@@ -158,24 +196,38 @@ export function MetricsDashboard() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-4">
-      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{title}</div>
+      <div className="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+        {title}
+      </div>
       <div className="space-y-1">{children}</div>
     </div>
   )
 }
 
-function Bar({ label, count, total, color }: { label: string; count: number; total: number; color?: string }) {
+function Bar({
+  label,
+  count,
+  total,
+  color,
+}: {
+  label: string
+  count: number
+  total: number
+  color?: string
+}) {
   const pct = total > 0 ? (count / total) * 100 : 0
   return (
     <div className="flex items-center gap-2 text-xs">
-      <div className="flex-1 min-w-0 truncate text-gray-600" title={label}>{label}</div>
-      <div className="flex-shrink-0 w-20 bg-gray-100 rounded-full h-1.5">
+      <div className="min-w-0 flex-1 truncate text-gray-600" title={label}>
+        {label}
+      </div>
+      <div className="h-1.5 w-20 flex-shrink-0 rounded-full bg-gray-100">
         <div
           className="h-1.5 rounded-full"
           style={{ width: `${pct}%`, backgroundColor: color ?? '#64748b' }}
         />
       </div>
-      <div className="flex-shrink-0 w-8 text-right text-gray-500">{count.toLocaleString()}</div>
+      <div className="w-8 flex-shrink-0 text-right text-gray-500">{count.toLocaleString()}</div>
     </div>
   )
 }

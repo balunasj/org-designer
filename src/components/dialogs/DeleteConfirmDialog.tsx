@@ -21,11 +21,16 @@ function formatNames(people: PersonRecord[]): string {
 
 export function DeleteConfirmDialog({ people, onConfirm, onCancel }: Props) {
   const confirmRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => { confirmRef.current?.focus() }, [])
+  useEffect(() => {
+    confirmRef.current?.focus()
+  }, [])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') onCancel()
-    if (e.key === 'Enter') { e.preventDefault(); onConfirm() }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      onConfirm()
+    }
   }
 
   return createPortal(
@@ -36,24 +41,24 @@ export function DeleteConfirmDialog({ people, onConfirm, onCancel }: Props) {
       <div className="absolute inset-0 bg-black/30" onClick={onCancel} />
 
       <div
-        className="relative bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm mx-4 p-5"
+        className="relative mx-4 w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start gap-3 mb-5">
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mt-0.5">
-            <Trash2 className="w-4 h-4 text-red-600" />
+        <div className="mb-5 flex items-start gap-3">
+          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
+            <Trash2 className="h-4 w-4 text-red-600" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-gray-800 mb-1">Confirm deletion</h2>
+            <h2 className="mb-1 text-sm font-semibold text-gray-800">Confirm deletion</h2>
             <p className="text-sm text-gray-600">
               Delete <span className="font-medium text-gray-900">{formatNames(people)}</span>?
               {people.length > 1 && (
-                <span className="block text-xs text-gray-500 mt-1">
+                <span className="mt-1 block text-xs text-gray-500">
                   Their direct reports will be reassigned to each person's manager.
                 </span>
               )}
               {people.length === 1 && people[0] && (
-                <span className="block text-xs text-gray-500 mt-1">
+                <span className="mt-1 block text-xs text-gray-500">
                   Their direct reports will be reassigned to their manager.
                 </span>
               )}
@@ -65,7 +70,7 @@ export function DeleteConfirmDialog({ people, onConfirm, onCancel }: Props) {
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-xs rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+            className="rounded border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
           >
             Cancel
           </button>
@@ -73,13 +78,13 @@ export function DeleteConfirmDialog({ people, onConfirm, onCancel }: Props) {
             ref={confirmRef}
             type="button"
             onClick={onConfirm}
-            className="px-3 py-1.5 text-xs rounded bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+            className="rounded bg-red-600 px-3 py-1.5 text-xs text-white hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-1 focus:outline-none"
           >
             Delete {people.length > 1 ? `${people.length} people` : 'person'}
           </button>
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   )
 }

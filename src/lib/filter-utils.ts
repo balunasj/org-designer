@@ -4,7 +4,7 @@ import type { FilterState } from '@/store'
 function isUnderManager(
   person: PersonRecord,
   managerUid: string,
-  people: Record<string, PersonRecord>
+  people: Record<string, PersonRecord>,
 ): boolean {
   let cur = person.managerUid
   while (cur) {
@@ -17,7 +17,7 @@ function isUnderManager(
 export function matchesFilter(
   person: PersonRecord,
   filters: FilterState,
-  people: Record<string, PersonRecord>
+  people: Record<string, PersonRecord>,
 ): boolean {
   if (filters.managerUid && !isUnderManager(person, filters.managerUid, people)) return false
   if (filters.geos.length > 0 && !filters.geos.includes(person.rhatGeo)) return false
@@ -46,7 +46,7 @@ export function hasActiveFilters(filters: FilterState): boolean {
 
 export function computeFilteredIds(
   people: Record<string, PersonRecord>,
-  filters: FilterState
+  filters: FilterState,
 ): { matchIds: Set<string>; ancestorIds: Set<string> } {
   const matchIds = new Set<string>()
   for (const [uid, person] of Object.entries(people)) {

@@ -46,9 +46,7 @@ export function applyOverlay(baseline: BaselineData, overlay: Overlay): Effectiv
         } else {
           // Move just the individual — reports go to former manager's manager
           const orphanManager = action.fromManagerUid
-          const directReports = Object.values(people).filter(
-            (p) => p.managerUid === action.uid
-          )
+          const directReports = Object.values(people).filter((p) => p.managerUid === action.uid)
           for (const report of directReports) {
             people[report.uid] = { ...people[report.uid], managerUid: orphanManager }
           }

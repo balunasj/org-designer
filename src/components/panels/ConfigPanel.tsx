@@ -1,18 +1,26 @@
 import { useAppStore } from '@/store'
 import type { CardDensity, LayoutDirection } from '@/store'
 
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
   return (
-    <label className="flex items-center justify-between py-1.5 cursor-pointer select-none">
+    <label className="flex cursor-pointer items-center justify-between py-1.5 select-none">
       <span className="text-sm text-gray-700">{label}</span>
       <button
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative w-9 h-5 rounded-full transition-colors ${checked ? 'bg-blue-500' : 'bg-gray-300'}`}
+        className={`relative h-5 w-9 rounded-full transition-colors ${checked ? 'bg-blue-500' : 'bg-gray-300'}`}
       >
         <span
-          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : ''}`}
+          className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : ''}`}
         />
       </button>
     </label>
@@ -29,14 +37,14 @@ function SegmentControl<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className="flex rounded border border-gray-200 overflow-hidden">
+    <div className="flex overflow-hidden rounded border border-gray-200">
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
-          className={`flex-1 text-xs py-1.5 transition-colors ${
+          className={`flex-1 py-1.5 text-xs transition-colors ${
             value === opt.value
-              ? 'bg-blue-500 text-white font-medium'
+              ? 'bg-blue-500 font-medium text-white'
               : 'bg-white text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -49,7 +57,7 @@ function SegmentControl<T extends string>({
 
 function SectionHeader({ label }: { label: string }) {
   return (
-    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-4 first:mt-0">
+    <div className="mt-4 mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase first:mt-0">
       {label}
     </div>
   )
@@ -61,17 +69,45 @@ export function ConfigPanel() {
   const setCardFields = useAppStore((s) => s.setCardFields)
 
   return (
-    <div className="p-3 space-y-0.5">
+    <div className="space-y-0.5 p-3">
       <SectionHeader label="Person" />
-      <Toggle label="Job Title" checked={config.cardFields.title} onChange={(v) => setCardFields({ title: v })} />
-      <Toggle label="Location (Geo · Country)" checked={config.cardFields.location} onChange={(v) => setCardFields({ location: v })} />
-      <Toggle label="City" checked={config.cardFields.city} onChange={(v) => setCardFields({ city: v })} />
-      <Toggle label="Hire Date" checked={config.cardFields.hireDate} onChange={(v) => setCardFields({ hireDate: v })} />
-      <Toggle label="Tenure" checked={config.cardFields.tenure} onChange={(v) => setCardFields({ tenure: v })} />
-      <Toggle label="Report Counts" checked={config.cardFields.reportCounts} onChange={(v) => setCardFields({ reportCounts: v })} />
+      <Toggle
+        label="Job Title"
+        checked={config.cardFields.title}
+        onChange={(v) => setCardFields({ title: v })}
+      />
+      <Toggle
+        label="Location (Geo · Country)"
+        checked={config.cardFields.location}
+        onChange={(v) => setCardFields({ location: v })}
+      />
+      <Toggle
+        label="City"
+        checked={config.cardFields.city}
+        onChange={(v) => setCardFields({ city: v })}
+      />
+      <Toggle
+        label="Hire Date"
+        checked={config.cardFields.hireDate}
+        onChange={(v) => setCardFields({ hireDate: v })}
+      />
+      <Toggle
+        label="Tenure"
+        checked={config.cardFields.tenure}
+        onChange={(v) => setCardFields({ tenure: v })}
+      />
+      <Toggle
+        label="Report Counts"
+        checked={config.cardFields.reportCounts}
+        onChange={(v) => setCardFields({ reportCounts: v })}
+      />
 
       <SectionHeader label="Team" />
-      <Toggle label="Team Name" checked={config.cardFields.team} onChange={(v) => setCardFields({ team: v })} />
+      <Toggle
+        label="Team Name"
+        checked={config.cardFields.team}
+        onChange={(v) => setCardFields({ team: v })}
+      />
 
       <SectionHeader label="Card Density" />
       <SegmentControl<CardDensity>
@@ -95,7 +131,11 @@ export function ConfigPanel() {
       />
 
       <SectionHeader label="Grid" />
-      <Toggle label="Snap to Grid" checked={config.snapToGrid} onChange={(v) => setConfig({ snapToGrid: v })} />
+      <Toggle
+        label="Snap to Grid"
+        checked={config.snapToGrid}
+        onChange={(v) => setConfig({ snapToGrid: v })}
+      />
     </div>
   )
 }

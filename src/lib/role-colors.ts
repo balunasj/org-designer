@@ -1,5 +1,5 @@
 export const ROLE_COLORS: Record<string, string> = {
-  'Engineering': '#0066CC',
+  Engineering: '#0066CC',
   'Quality Engineering': '#5C940D',
   'Program/Project Management': '#E67700',
   'Senior Leadership': '#862E9C',

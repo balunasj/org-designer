@@ -1,13 +1,6 @@
 import type { EdgeProps } from '@xyflow/react'
 
-export function OrgChartEdge({
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  style,
-  data,
-}: EdgeProps) {
+export function OrgChartEdge({ sourceX, sourceY, targetX, targetY, style, data }: EdgeProps) {
   const isLR = (data as { direction?: string })?.direction === 'LR'
 
   let d: string

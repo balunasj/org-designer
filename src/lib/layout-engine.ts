@@ -4,23 +4,23 @@ import type { EffectiveState } from '@/types/org'
 import type { ConfigState, CardDensity } from '@/store'
 
 export const NODE_WIDTH = 220
-export const NODE_HEIGHT_BASE = 36  // pt-2(8) + text-sm leading-tight(18) + pb-2(8) + border(2)
-export const NODE_HEIGHT = 90       // default height (title + location + reportCounts on)
+export const NODE_HEIGHT_BASE = 36 // pt-2(8) + text-sm leading-tight(18) + pb-2(8) + border(2)
+export const NODE_HEIGHT = 90 // default height (title + location + reportCounts on)
 export const SCOPE_WIDTH = 200
 export const SCOPE_HEIGHT = 60
 
 // Density controls spacing between cards — same gap applied in both directions
 // Minimum safe gap is 12px: the expand button sits 12px below the card bottom (z-10, doesn't block)
 const DENSITY_GAP: Record<CardDensity, number> = {
-  compact:     12,
-  default:     36,
+  compact: 12,
+  default: 36,
   comfortable: 60,
 }
 
 // ranksep (spacing between hierarchy levels) can be larger than nodesep (peer spacing)
 const DENSITY_RANKSEP: Record<CardDensity, number> = {
-  compact:     36,
-  default:     36,
+  compact: 36,
+  default: 36,
   comfortable: 60,
 }
 
@@ -57,7 +57,7 @@ export function computeLayout(
   expandedNodes: Set<string>,
   rootUid: string,
   config?: ConfigState,
-  hiddenPeersOf: Set<string> = new Set()
+  hiddenPeersOf: Set<string> = new Set(),
 ): { nodes: Node[]; edges: Edge[] } {
   const density = config?.density ?? 'default'
   const direction = config?.direction ?? 'TB'
@@ -112,7 +112,11 @@ export function computeLayout(
     if (!person) continue
     const isManager = person.directReports > 0
     const teamName = person.teamId ? (state.teams[person.teamId]?.name ?? person.teamId) : null
-    g.setNode(uid, { width: NODE_WIDTH, height: nodeHeight, data: { ...person, isManager, teamName } })
+    g.setNode(uid, {
+      width: NODE_WIDTH,
+      height: nodeHeight,
+      data: { ...person, isManager, teamName },
+    })
   }
 
   for (const scopeId of visibleScopeIds) {
