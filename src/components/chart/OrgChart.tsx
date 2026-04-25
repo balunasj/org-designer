@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow,
   Background,
@@ -6,14 +6,21 @@ import {
   MiniMap,
   useReactFlow,
   ReactFlowProvider,
+  applyNodeChanges,
   type NodeTypes,
+  type EdgeTypes,
   type Node,
+  type NodeChange,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { PersonNode } from './PersonNode'
 import { ScopeNode } from './ScopeNode'
+import { OrgChartEdge } from './OrgChartEdge'
+import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog'
 import { useAppStore } from '@/store'
-import { computeLayout } from '@/lib/layout-engine'
+import { computeLayout, getNodeDims } from '@/lib/layout-engine'
+import { computeFilteredIds, hasActiveFilters } from '@/lib/filter-utils'
+import { getSubtreeIds } from '@/lib/hierarchy-utils'
 import type { MoveAction } from '@/types/overlay'
 
 const nodeTypes: NodeTypes = {
@@ -22,29 +29,105 @@ const nodeTypes: NodeTypes = {
   scope: ScopeNode as never,
 }
 
+const edgeTypes: EdgeTypes = {
+  orgchart: OrgChartEdge as never,
+}
+
 function OrgChartInner() {
-  const { fitView } = useReactFlow()
+  const { fitView, getNodes } = useReactFlow()
   const effectiveState = useAppStore((s) => s.effectiveState)
   const baseline = useAppStore((s) => s.baseline)
   const ui = useAppStore((s) => s.ui)
+  const filters = useAppStore((s) => s.filters)
+  const config = useAppStore((s) => s.config)
   const setSelected = useAppStore((s) => s.setSelected)
   const pushAction = useAppStore((s) => s.pushAction)
+  const pushActions = useAppStore((s) => s.pushActions)
+  const selectedNodeIds = useAppStore((s) => s.ui.selectedNodeIds)
+  const pendingDeleteUids = useAppStore((s) => s.ui.pendingDeleteUids)
+  const requestDelete = useAppStore((s) => s.requestDelete)
+  const confirmDelete = useAppStore((s) => s.confirmDelete)
+  const cancelDelete = useAppStore((s) => s.cancelDelete)
+  const fitViewTarget = useAppStore((s) => s.ui.fitViewTarget)
+  const clearFitViewTarget = useAppStore((s) => s.clearFitViewTarget)
+  const setOpenMenu = useAppStore((s) => s.setOpenMenu)
 
   const shiftRef = useRef(false)
   const draggingRef = useRef<{ id: string; originalManagerUid: string | null } | null>(null)
 
+  const selectedNodeIdsRef = useRef(selectedNodeIds)
+  useEffect(() => { selectedNodeIdsRef.current = selectedNodeIds }, [selectedNodeIds])
+
+  const pendingDeleteRef = useRef(pendingDeleteUids)
+  useEffect(() => { pendingDeleteRef.current = pendingDeleteUids }, [pendingDeleteUids])
+
   useEffect(() => {
-    const down = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftRef.current = true }
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') { shiftRef.current = true; return }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const tag = (e.target as HTMLElement).tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        if (pendingDeleteRef.current !== null) return
+        const ids = selectedNodeIdsRef.current
+        if (ids.size > 0) {
+          e.preventDefault()
+          requestDelete(Array.from(ids))
+        }
+      }
+    }
     const up = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftRef.current = false }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
-  }, [])
+  }, [requestDelete])
 
-  const { nodes, edges } = useMemo(() => {
+  const layoutResult = useMemo(() => {
     if (!effectiveState || !baseline) return { nodes: [], edges: [] }
-    return computeLayout(effectiveState, ui.expandedNodes, baseline.rootUid)
-  }, [effectiveState, ui.expandedNodes, baseline])
+    const viewRoot = ui.viewRootUid ?? baseline.rootUid
+    return computeLayout(effectiveState, ui.expandedNodes, viewRoot, config, ui.hiddenPeersOf)
+  }, [effectiveState, ui.expandedNodes, ui.viewRootUid, ui.hiddenPeersOf, baseline, config])
+
+  // Keep a ref to the latest layout so snap-back can access it without stale closures
+  const layoutResultRef = useRef(layoutResult)
+  useEffect(() => { layoutResultRef.current = layoutResult }, [layoutResult])
+
+  // Local node state so drag position updates are applied without losing dagre layout
+  const [nodes, setNodes] = useState<Node[]>([])
+  const [edges, setEdges] = useState(layoutResult.edges)
+
+  // Apply filters + stamp viewRootUid onto node data
+  useEffect(() => {
+    const viewRootUid = ui.viewRootUid
+
+    const stampViewRoot = (nodes: Node[]) =>
+      nodes.map((n) => n.id.startsWith('scope:') ? n : { ...n, data: { ...n.data, viewRootUid } })
+
+    const active = hasActiveFilters(filters)
+    if (!active || !effectiveState) {
+      setNodes(stampViewRoot(layoutResult.nodes))
+      setEdges(layoutResult.edges)
+      return
+    }
+
+    const { matchIds, ancestorIds } = computeFilteredIds(effectiveState.people, filters)
+
+    if (filters.mode === 'hide') {
+      const visibleIds = new Set([...matchIds, ...ancestorIds])
+      setNodes(stampViewRoot(layoutResult.nodes.filter((n) => n.id.startsWith('scope:') || visibleIds.has(n.id))))
+      setEdges(layoutResult.edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target)))
+    } else {
+      setNodes(stampViewRoot(layoutResult.nodes.map((n) => {
+        if (n.id.startsWith('scope:')) return n
+        const dimmed = !matchIds.has(n.id)
+        return { ...n, data: { ...n.data, dimmed } }
+      })))
+      setEdges(layoutResult.edges)
+    }
+  }, [layoutResult, filters, effectiveState, ui.viewRootUid])
+
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setNodes((nds) => applyNodeChanges(changes, nds))
+  }, [])
 
   // Fit view when layout changes significantly (first load or expand all)
   const prevNodeCount = useRef(0)
@@ -55,61 +138,167 @@ function OrgChartInner() {
     prevNodeCount.current = nodes.length
   }, [nodes.length, fitView])
 
-  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
-    setSelected(node.id)
-  }, [setSelected])
+  // Center viewport on a search-selected node after layout settles
+  useEffect(() => {
+    if (!fitViewTarget) return
+    requestAnimationFrame(() => {
+      fitView({ nodes: [{ id: fitViewTarget }], padding: 0.3, duration: 400 })
+      clearFitViewTarget()
+    })
+  }, [fitViewTarget, fitView, clearFitViewTarget])
 
-  const onPaneClick = useCallback(() => setSelected(null), [setSelected])
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    setSelected(node.id, event.metaKey || event.ctrlKey)
+    setOpenMenu(null)
+  }, [setSelected, setOpenMenu])
+
+  const onPaneClick = useCallback(() => {
+    setSelected(null)
+    setOpenMenu(null)
+  }, [setSelected, setOpenMenu])
+
+  const dropTargetRef = useRef<string | null>(null)
+
+  const findClosestDropTarget = useCallback((draggedId: string, draggedPos: { x: number; y: number }, allNodes: Node[]): string | null => {
+    if (!effectiveState) return null
+    const { w: nw, h: nh } = getNodeDims(config)
+    // Require actual bounding-box overlap; pick the candidate with the largest overlap area
+    let bestId: string | null = null
+    let bestOverlap = 0
+    for (const n of allNodes) {
+      if (n.id === draggedId || n.id.startsWith('scope:')) continue
+      if (!effectiveState.people[n.id]) continue
+      const overlapX = Math.min(draggedPos.x + nw, n.position.x + nw) - Math.max(draggedPos.x, n.position.x)
+      const overlapY = Math.min(draggedPos.y + nh, n.position.y + nh) - Math.max(draggedPos.y, n.position.y)
+      if (overlapX <= 0 || overlapY <= 0) continue
+      const area = overlapX * overlapY
+      if (area > bestOverlap) { bestOverlap = area; bestId = n.id }
+    }
+    return bestId
+  }, [effectiveState, config.density])
+
+  const snapToGridRef = useRef(config.snapToGrid)
+  useEffect(() => { snapToGridRef.current = config.snapToGrid }, [config.snapToGrid])
+
+  const onNodeDrag = useCallback((_: React.MouseEvent, draggedNode: Node) => {
+    const allNodes = getNodes()
+    const newTarget = findClosestDropTarget(draggedNode.id, draggedNode.position, allNodes)
+    if (newTarget === dropTargetRef.current) return
+    if (dropTargetRef.current) {
+      document.querySelector(`.react-flow__node[data-id="${dropTargetRef.current}"]`)?.classList.remove('drop-target')
+    }
+    dropTargetRef.current = newTarget
+    if (newTarget) {
+      document.querySelector(`.react-flow__node[data-id="${newTarget}"]`)?.classList.add('drop-target')
+    }
+  }, [findClosestDropTarget, getNodes])
 
   const onNodeDragStart = useCallback((_: React.MouseEvent, node: Node) => {
     if (!effectiveState) return
-    const isScope = node.id.startsWith('scope:')
-    if (isScope) return
+    if (node.id.startsWith('scope:')) return
     const person = effectiveState.people[node.id]
     if (!person) return
     draggingRef.current = { id: node.id, originalManagerUid: person.managerUid }
+    // Suppress transition while dragging so the node tracks the cursor without lag
+    setNodes((nds) =>
+      nds.map((n) => n.id === node.id ? { ...n, style: { ...n.style, transition: 'none' } } : n)
+    )
   }, [effectiveState])
 
+  const snapBack = useCallback((draggedId: string) => {
+    // Restore node to its dagre-computed position with animation
+    const layout = layoutResultRef.current
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id !== draggedId) return n
+        const layoutNode = layout.nodes.find((ln) => ln.id === draggedId)
+        if (!layoutNode) return n
+        return { ...layoutNode, style: { ...layoutNode.style, transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)' } }
+      })
+    )
+  }, [])
+
+  const restoreTransition = useCallback((draggedId: string) => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === draggedId
+          ? { ...n, style: { ...n.style, transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)' } }
+          : n
+      )
+    )
+  }, [])
+
   const onNodeDragStop = useCallback(
-    (_: React.MouseEvent, draggedNode: Node, allNodes: Node[]) => {
+    (_: React.MouseEvent, draggedNode: Node) => {
+      const allNodes = getNodes()
+      // Clear drop-target highlight
+      if (dropTargetRef.current) {
+        document.querySelector(`.react-flow__node[data-id="${dropTargetRef.current}"]`)?.classList.remove('drop-target')
+        dropTargetRef.current = null
+      }
+
       if (!draggingRef.current || !effectiveState) return
-      const { id, originalManagerUid } = draggingRef.current
+      const { id } = draggingRef.current
       draggingRef.current = null
 
-      // Find the closest person/manager node to drop onto (excluding self)
-      const draggedPos = draggedNode.position
-      let closestId: string | null = null
-      let minDist = 150 // minimum overlap distance to register a drop
+      const closestId = findClosestDropTarget(id, draggedNode.position, allNodes)
+      if (!closestId) {
+        if (snapToGridRef.current) snapBack(id)
+        else restoreTransition(id)
+        return
+      }
 
-      for (const n of allNodes) {
-        if (n.id === id || n.id.startsWith('scope:')) continue
-        if (!effectiveState.people[n.id]) continue
-        const dx = Math.abs(n.position.x - draggedPos.x)
-        const dy = Math.abs(n.position.y - draggedPos.y)
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < minDist) {
-          minDist = dist
-          closestId = n.id
+      // Determine which nodes to move: all selected if dragging from within selection
+      const nodesToMove = selectedNodeIds.has(id) ? Array.from(selectedNodeIds) : [id]
+
+      // Prevent dropping onto a selected node or any ancestor of the drop target
+      if (selectedNodeIds.has(closestId)) {
+        if (snapToGridRef.current) snapBack(id)
+        else restoreTransition(id)
+        return
+      }
+      for (const uid of nodesToMove) {
+        const subtree = getSubtreeIds(uid, effectiveState.people)
+        if (subtree.has(closestId)) {
+          if (snapToGridRef.current) snapBack(id)
+          else restoreTransition(id)
+          return
         }
       }
 
-      if (!closestId || closestId === originalManagerUid) return
-      // Prevent dropping onto own descendant
-      const subtree = getSubtreeIds(id, effectiveState.people)
-      if (subtree.has(closestId)) return
+      const timestamp = new Date().toISOString()
+      const actions: MoveAction[] = nodesToMove
+        .filter((uid) => {
+          const person = effectiveState.people[uid]
+          return person && person.managerUid !== closestId
+        })
+        .map((uid) => ({
+          type: 'move' as const,
+          uid,
+          fromManagerUid: effectiveState.people[uid].managerUid,
+          toManagerUid: closestId,
+          moveSubtree: !shiftRef.current,
+          timestamp,
+        }))
 
-      const action: MoveAction = {
-        type: 'move',
-        uid: id,
-        fromManagerUid: originalManagerUid,
-        toManagerUid: closestId,
-        moveSubtree: !shiftRef.current,
-        timestamp: new Date().toISOString(),
+      if (actions.length === 0) {
+        if (snapToGridRef.current) snapBack(id)
+        else restoreTransition(id)
+      } else if (actions.length === 1) {
+        pushAction(actions[0])
+      } else {
+        pushActions(actions)
       }
-      pushAction(action)
     },
-    [effectiveState, pushAction]
+    [effectiveState, pushAction, pushActions, selectedNodeIds, findClosestDropTarget, getNodes, snapBack, restoreTransition]
   )
+
+  const pendingPeople = pendingDeleteUids
+    ? pendingDeleteUids.flatMap((uid) => {
+        const p = effectiveState?.people[uid]
+        return p ? [p] : []
+      })
+    : []
 
   if (!baseline) {
     return (
@@ -123,13 +312,24 @@ function OrgChartInner() {
   }
 
   return (
+    <>
+    {pendingDeleteUids && pendingPeople.length > 0 && (
+      <DeleteConfirmDialog
+        people={pendingPeople}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
+    )}
     <ReactFlow
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      onNodesChange={onNodesChange}
       onNodeClick={onNodeClick}
       onPaneClick={onPaneClick}
       onNodeDragStart={onNodeDragStart}
+      onNodeDrag={onNodeDrag}
       onNodeDragStop={onNodeDragStop}
       fitView
       fitViewOptions={{ padding: 0.1 }}
@@ -137,7 +337,8 @@ function OrgChartInner() {
       maxZoom={2}
       nodesDraggable={true}
       nodesConnectable={false}
-      elementsSelectable={true}
+      elementsSelectable={false}
+      selectionKeyCode={null}
     >
       <Background color="#e2e8f0" gap={20} />
       <Controls />
@@ -150,21 +351,10 @@ function OrgChartInner() {
         style={{ background: '#f8fafc' }}
       />
     </ReactFlow>
+    </>
   )
 }
 
-function getSubtreeIds(rootUid: string, people: Record<string, { managerUid: string | null }>): Set<string> {
-  const result = new Set<string>()
-  const queue = [rootUid]
-  while (queue.length > 0) {
-    const uid = queue.shift()!
-    result.add(uid)
-    for (const [id, p] of Object.entries(people)) {
-      if (p.managerUid === uid && !result.has(id)) queue.push(id)
-    }
-  }
-  return result
-}
 
 export function OrgChart() {
   return (

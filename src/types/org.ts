@@ -12,6 +12,9 @@ export interface OrgScopeNode {
   id: string
   name: string
   managerUid: string | null
+  teamType?: 'org' | 'team_group' | 'team'
+  memberCount?: number
+  description?: string
 }
 
 export type OrgNode = OrgPersonNode | OrgScopeNode

@@ -10,16 +10,42 @@ export interface FilterState {
   geos: string[]
   countries: string[]
   jobRoles: string[]
+  teams: string[]
   titleSearch: string
   managerUid: string | null
   mode: 'highlight' | 'hide'
 }
 
+export interface CardFieldToggles {
+  title: boolean
+  location: boolean
+  city: boolean
+  hireDate: boolean
+  tenure: boolean
+  team: boolean
+  reportCounts: boolean
+}
+
+export type CardDensity = 'compact' | 'default' | 'comfortable'
+export type LayoutDirection = 'TB' | 'LR'
+
+export interface ConfigState {
+  cardFields: CardFieldToggles
+  density: CardDensity
+  direction: LayoutDirection
+  snapToGrid: boolean
+}
+
 export interface UIState {
   expandedNodes: Set<string>
   selectedNodeId: string | null
-  filterMode: 'highlight' | 'hide'
-  sidebarTab: 'metrics' | 'filters' | 'scenarios'
+  selectedNodeIds: Set<string>
+  pendingDeleteUids: string[] | null
+  sidebarTab: 'metrics' | 'filters' | 'configure'
+  viewRootUid: string | null     // null = full org from baseline.rootUid
+  hiddenPeersOf: Set<string>    // uids whose siblings are hidden
+  fitViewTarget: string | null   // transient: OrgChart centers on this uid then clears it
+  openMenuNodeId: string | null  // which card's hamburger menu is open
 }
 
 export interface AppState {
@@ -33,6 +59,7 @@ export interface AppState {
   // UI
   ui: UIState
   filters: FilterState
+  config: ConfigState
 
   // Scenarios
   currentScenarioName: string
@@ -40,26 +67,42 @@ export interface AppState {
   // Actions
   loadBaseline: () => Promise<void>
   loadScenario: (name: string) => Promise<void>
+  loadScenarioFromJson: (scenario: { name?: string; overlay?: Overlay }) => void
   saveScenario: (name: string) => Promise<void>
 
   pushAction: (action: OverlayAction) => void
+  pushActions: (actions: OverlayAction[]) => void
   undo: () => void
   redo: () => void
 
   toggleExpanded: (nodeId: string) => void
   expandAll: () => void
   collapseAll: () => void
-  setSelected: (nodeId: string | null) => void
+  setSelected: (nodeId: string | null, additive?: boolean) => void
   setSidebarTab: (tab: UIState['sidebarTab']) => void
 
   setFilters: (filters: Partial<FilterState>) => void
   clearFilters: () => void
+
+  setConfig: (config: Partial<ConfigState>) => void
+  setCardFields: (fields: Partial<CardFieldToggles>) => void
+
+  setViewRoot: (uid: string | null) => void
+  togglePeerVisibility: (uid: string) => void
+  navigateToNode: (uid: string) => void
+  clearFitViewTarget: () => void
+  setOpenMenu: (nodeId: string | null) => void
+
+  requestDelete: (uids: string[]) => void
+  confirmDelete: () => void
+  cancelDelete: () => void
 }
 
 const defaultFilters: FilterState = {
   geos: [],
   countries: [],
   jobRoles: [],
+  teams: [],
   titleSearch: '',
   managerUid: null,
   mode: 'highlight',
@@ -68,8 +111,28 @@ const defaultFilters: FilterState = {
 const defaultUI: UIState = {
   expandedNodes: new Set(),
   selectedNodeId: null,
-  filterMode: 'highlight',
+  selectedNodeIds: new Set(),
+  pendingDeleteUids: null,
   sidebarTab: 'metrics',
+  viewRootUid: null,
+  hiddenPeersOf: new Set(),
+  fitViewTarget: null,
+  openMenuNodeId: null,
+}
+
+const defaultConfig: ConfigState = {
+  cardFields: {
+    title: true,
+    location: true,
+    city: false,
+    hireDate: false,
+    tenure: false,
+    team: false,
+    reportCounts: true,
+  },
+  density: 'default',
+  direction: 'TB',
+  snapToGrid: true,
 }
 
 function computeEffective(baseline: BaselineData, overlay: Overlay): EffectiveState {
@@ -85,6 +148,7 @@ export const useAppStore = create<AppState>()(
     effectiveState: null,
     ui: defaultUI,
     filters: defaultFilters,
+    config: defaultConfig,
     currentScenarioName: 'default',
 
     loadBaseline: async () => {
@@ -99,7 +163,6 @@ export const useAppStore = create<AppState>()(
         effectiveState,
         ui: {
           ...defaultUI,
-          // Default: root node expanded
           expandedNodes: new Set([rootUid]),
         },
       })
@@ -113,6 +176,19 @@ export const useAppStore = create<AppState>()(
       const { baseline } = get()
       const effectiveState = baseline ? computeEffective(baseline, overlay) : null
       set({ overlay, effectiveState, currentScenarioName: name, undoStack: [], redoStack: [] })
+    },
+
+    loadScenarioFromJson: (scenario: { name?: string; overlay?: Overlay }) => {
+      const overlay: Overlay = scenario.overlay ?? emptyOverlay()
+      const { baseline } = get()
+      const effectiveState = baseline ? computeEffective(baseline, overlay) : null
+      set({
+        overlay,
+        effectiveState,
+        currentScenarioName: scenario.name ?? 'imported',
+        undoStack: [],
+        redoStack: [],
+      })
     },
 
     saveScenario: async (name: string) => {
@@ -139,6 +215,20 @@ export const useAppStore = create<AppState>()(
         overlay: newOverlay,
         effectiveState,
         undoStack: [...undoStack, [action]],
+        redoStack: [],
+      })
+    },
+
+    pushActions: (actions: OverlayAction[]) => {
+      if (actions.length === 0) return
+      const { overlay, baseline, undoStack } = get()
+      const newActions = [...overlay.actions, ...actions]
+      const newOverlay: Overlay = { actions: newActions }
+      const effectiveState = baseline ? computeEffective(baseline, newOverlay) : null
+      set({
+        overlay: newOverlay,
+        effectiveState,
+        undoStack: [...undoStack, actions],
         redoStack: [],
       })
     },
@@ -192,12 +282,27 @@ export const useAppStore = create<AppState>()(
 
     collapseAll: () => {
       const { ui, baseline } = get()
-      set({ ui: { ...ui, expandedNodes: new Set(baseline ? [baseline.rootUid] : []) } })
+      const root = ui.viewRootUid ?? (baseline?.rootUid ?? '')
+      set({ ui: { ...ui, expandedNodes: new Set(root ? [root] : []) } })
     },
 
-    setSelected: (nodeId: string | null) => {
+    setSelected: (nodeId: string | null, additive?: boolean) => {
       const { ui } = get()
-      set({ ui: { ...ui, selectedNodeId: nodeId } })
+      if (nodeId === null) {
+        set({ ui: { ...ui, selectedNodeId: null, selectedNodeIds: new Set() } })
+        return
+      }
+      if (additive) {
+        const next = new Set(ui.selectedNodeIds)
+        if (next.has(nodeId)) {
+          next.delete(nodeId)
+        } else {
+          next.add(nodeId)
+        }
+        set({ ui: { ...ui, selectedNodeId: nodeId, selectedNodeIds: next } })
+      } else {
+        set({ ui: { ...ui, selectedNodeId: nodeId, selectedNodeIds: new Set([nodeId]) } })
+      }
     },
 
     setSidebarTab: (tab: UIState['sidebarTab']) => {
@@ -210,5 +315,114 @@ export const useAppStore = create<AppState>()(
     },
 
     clearFilters: () => set({ filters: defaultFilters }),
+
+    setConfig: (config: Partial<ConfigState>) => {
+      set((state) => ({ config: { ...state.config, ...config } }))
+    },
+
+    setCardFields: (fields: Partial<CardFieldToggles>) => {
+      set((state) => ({
+        config: {
+          ...state.config,
+          cardFields: { ...state.config.cardFields, ...fields },
+        },
+      }))
+    },
+
+    setViewRoot: (uid: string | null) => {
+      const { ui } = get()
+      if (uid === null) {
+        set({ ui: { ...ui, viewRootUid: null, hiddenPeersOf: new Set() } })
+        return
+      }
+      set({ ui: { ...ui, viewRootUid: uid } })
+    },
+
+    togglePeerVisibility: (uid: string) => {
+      const { ui } = get()
+      const next = new Set(ui.hiddenPeersOf)
+      if (next.has(uid)) next.delete(uid)
+      else next.add(uid)
+      set({ ui: { ...ui, hiddenPeersOf: next } })
+    },
+
+    navigateToNode: (uid: string) => {
+      const { ui, effectiveState, baseline } = get()
+      if (!effectiveState || !baseline) return
+
+      const people = effectiveState.people
+      if (!people[uid]) return
+
+      // Build ancestor chain bottom-up: [direct-parent, grandparent, ..., root]
+      const ancestors: string[] = []
+      let cur: string | null = people[uid]?.managerUid ?? null
+      while (cur) {
+        ancestors.push(cur)
+        cur = people[cur]?.managerUid ?? null
+      }
+
+      // Expand all ancestors so the path is traversable, plus target for its direct reports
+      const expanded = new Set(ui.expandedNodes)
+      for (const a of ancestors) expanded.add(a)
+      expanded.add(uid)
+
+      // For each ancestor, hide its siblings so only the branch toward target is shown.
+      // This prevents CEO/CEO-1/CEO-2/etc. from fanning out all their reports.
+      // The target itself is NOT added here, so its peers remain visible.
+      const hiddenPeersOf = new Set(ancestors)
+
+      set({
+        ui: {
+          ...ui,
+          viewRootUid: null,
+          hiddenPeersOf,
+          expandedNodes: expanded,
+          selectedNodeId: uid,
+          selectedNodeIds: new Set([uid]),
+          fitViewTarget: uid,
+        },
+      })
+    },
+
+    clearFitViewTarget: () => {
+      const { ui } = get()
+      set({ ui: { ...ui, fitViewTarget: null } })
+    },
+
+    setOpenMenu: (nodeId: string | null) => {
+      const { ui } = get()
+      set({ ui: { ...ui, openMenuNodeId: nodeId } })
+    },
+
+    requestDelete: (uids: string[]) => {
+      const { ui, effectiveState } = get()
+      // Filter out root (managerUid === null) — root cannot be deleted
+      const deletable = uids.filter((uid) => {
+        const p = effectiveState?.people[uid]
+        return p && p.managerUid !== null
+      })
+      if (deletable.length === 0) return
+      set({ ui: { ...ui, pendingDeleteUids: deletable } })
+    },
+
+    confirmDelete: () => {
+      const { ui, effectiveState } = get()
+      const uids = ui.pendingDeleteUids
+      if (!uids || !effectiveState) return
+      const timestamp = new Date().toISOString()
+      const actions: OverlayAction[] = uids.map((uid) => ({
+        type: 'delete_person' as const,
+        uid,
+        reassignTo: effectiveState.people[uid]?.managerUid ?? null,
+        timestamp,
+      }))
+      set({ ui: { ...ui, pendingDeleteUids: null, selectedNodeId: null, selectedNodeIds: new Set() } })
+      get().pushActions(actions)
+    },
+
+    cancelDelete: () => {
+      const { ui } = get()
+      set({ ui: { ...ui, pendingDeleteUids: null } })
+    },
   }))
 )

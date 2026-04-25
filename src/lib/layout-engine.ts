@@ -1,11 +1,49 @@
 import dagre from '@dagrejs/dagre'
 import type { Node, Edge } from '@xyflow/react'
 import type { EffectiveState } from '@/types/org'
+import type { ConfigState, CardDensity } from '@/store'
 
 export const NODE_WIDTH = 220
-export const NODE_HEIGHT = 90
+export const NODE_HEIGHT_BASE = 36  // pt-2(8) + text-sm leading-tight(18) + pb-2(8) + border(2)
+export const NODE_HEIGHT = 90       // default height (title + location + reportCounts on)
 export const SCOPE_WIDTH = 200
 export const SCOPE_HEIGHT = 60
+
+// Density controls spacing between cards — same gap applied in both directions
+// Minimum safe gap is 12px: the expand button sits 12px below the card bottom (z-10, doesn't block)
+const DENSITY_GAP: Record<CardDensity, number> = {
+  compact:     12,
+  default:     36,
+  comfortable: 60,
+}
+
+// ranksep (spacing between hierarchy levels) can be larger than nodesep (peer spacing)
+const DENSITY_RANKSEP: Record<CardDensity, number> = {
+  compact:     36,
+  default:     36,
+  comfortable: 60,
+}
+
+// Each optional field row is text-xs (16px line-height) + mt-0.5 (2px) = 18px
+const FIELD_ROW_HEIGHT = 18
+
+export function computeNodeHeight(cardFields?: ConfigState['cardFields']): number {
+  if (!cardFields) return NODE_HEIGHT
+  const fieldCount = [
+    cardFields.title,
+    cardFields.location,
+    cardFields.city,
+    cardFields.hireDate,
+    cardFields.tenure,
+    cardFields.team,
+    cardFields.reportCounts,
+  ].filter(Boolean).length
+  return NODE_HEIGHT_BASE + fieldCount * FIELD_ROW_HEIGHT
+}
+
+export function getNodeDims(config?: ConfigState) {
+  return { w: NODE_WIDTH, h: computeNodeHeight(config?.cardFields) }
+}
 
 export interface OrgTreeNode {
   id: string
@@ -17,10 +55,20 @@ export interface OrgTreeNode {
 export function computeLayout(
   state: EffectiveState,
   expandedNodes: Set<string>,
-  rootUid: string
+  rootUid: string,
+  config?: ConfigState,
+  hiddenPeersOf: Set<string> = new Set()
 ): { nodes: Node[]; edges: Edge[] } {
+  const density = config?.density ?? 'default'
+  const direction = config?.direction ?? 'TB'
+  const cardFields = config?.cardFields
+  const nodeHeight = computeNodeHeight(cardFields)
+
+  const gap = DENSITY_GAP[density]
+  const rankGap = DENSITY_RANKSEP[density]
+
   const g = new dagre.graphlib.Graph()
-  g.setGraph({ rankdir: 'TB', nodesep: 40, ranksep: 80, marginx: 20, marginy: 20 })
+  g.setGraph({ rankdir: direction, nodesep: gap, ranksep: rankGap, marginx: 20, marginy: 20 })
   g.setDefaultEdgeLabel(() => ({}))
 
   const visiblePersonIds = new Set<string>()
@@ -34,15 +82,17 @@ export function computeLayout(
     const uid = queue.shift()!
     if (!expandedNodes.has(uid)) continue
 
-    // Add person children
-    for (const [childUid, p] of Object.entries(state.people)) {
-      if (p.managerUid === uid && !visiblePersonIds.has(childUid)) {
+    // Collect children; if any child has "hide peers" active, show only that child
+    const children = Object.entries(state.people).filter(([, p]) => p.managerUid === uid)
+    const focusedChild = children.find(([childUid]) => hiddenPeersOf.has(childUid))
+    const visibleChildren = focusedChild ? [focusedChild] : children
+    for (const [childUid] of visibleChildren) {
+      if (!visiblePersonIds.has(childUid)) {
         visiblePersonIds.add(childUid)
         queue.push(childUid)
       }
     }
 
-    // Add scope nodes assigned to this manager
     for (const [scopeId, scope] of Object.entries(state.scopeNodes)) {
       if (scope.managerUid === uid) {
         visibleScopeIds.add(scopeId)
@@ -50,18 +100,29 @@ export function computeLayout(
     }
   }
 
-  // Add nodes to dagre graph
+  // Pre-compute member counts per team (people whose teamId matches)
+  const teamMemberCounts: Record<string, number> = {}
+  for (const person of Object.values(state.people)) {
+    if (person.teamId) teamMemberCounts[person.teamId] = (teamMemberCounts[person.teamId] ?? 0) + 1
+  }
+
+  // Add nodes to dagre graph — width fixed, height reflects active fields
   for (const uid of visiblePersonIds) {
     const person = state.people[uid]
     if (!person) continue
     const isManager = person.directReports > 0
-    g.setNode(uid, { width: NODE_WIDTH, height: NODE_HEIGHT, data: { ...person, isManager } })
+    const teamName = person.teamId ? (state.teams[person.teamId]?.name ?? person.teamId) : null
+    g.setNode(uid, { width: NODE_WIDTH, height: nodeHeight, data: { ...person, isManager, teamName } })
   }
 
   for (const scopeId of visibleScopeIds) {
     const scope = state.scopeNodes[scopeId]
     if (!scope) continue
-    g.setNode(`scope:${scopeId}`, { width: SCOPE_WIDTH, height: SCOPE_HEIGHT, data: { ...scope } })
+    g.setNode(`scope:${scopeId}`, {
+      width: SCOPE_WIDTH,
+      height: SCOPE_HEIGHT,
+      data: { ...scope, memberCount: teamMemberCounts[scopeId] ?? 0 },
+    })
   }
 
   // Add edges
@@ -91,16 +152,22 @@ export function computeLayout(
     const hasChildren =
       Object.values(state.people).some((p) => p.managerUid === uid) ||
       Object.values(state.scopeNodes).some((s) => s.managerUid === uid)
+    const teamName = person.teamId ? (state.teams[person.teamId]?.name ?? person.teamId) : null
 
     nodes.push({
       id: uid,
       type: person.directReports > 0 ? 'manager' : 'person',
-      position: { x: n.x - NODE_WIDTH / 2, y: n.y - NODE_HEIGHT / 2 },
+      position: { x: n.x - NODE_WIDTH / 2, y: n.y - nodeHeight / 2 },
+      style: { transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)' },
       data: {
         ...person,
+        teamName,
         isManager: person.directReports > 0,
         hasChildren,
         isExpanded: expandedNodes.has(uid),
+        cardFields,
+        direction,
+        hiddenPeersOf,
       },
     })
   }
@@ -117,13 +184,13 @@ export function computeLayout(
     })
   }
 
-  // Build edges from the graph
   for (const e of g.edges()) {
     edges.push({
       id: `${e.v}->${e.w}`,
       source: e.v,
       target: e.w,
-      type: 'smoothstep',
+      type: 'orgchart',
+      data: { direction },
       style: { stroke: '#94a3b8', strokeWidth: 1.5 },
     })
   }

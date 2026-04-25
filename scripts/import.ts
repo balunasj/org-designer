@@ -37,7 +37,6 @@ const ORG_FLEET_PATH =
     process.env.HOME!,
     'Projects/org/config/structures/hybrid_platforms/fleet'
   )
-const ROOT_UID = process.env.ROOT_UID ?? 'jlaska'
 
 // ── Types for raw fastrover data ───────────────────────────────────────────
 
@@ -87,27 +86,32 @@ console.log(`  Loaded ${allUsers.length} users`)
 
 const byUid = new Map(allUsers.map((u) => [u.uid, u]))
 
-// ── Step 2: BFS to collect the org subset ─────────────────────────────────
+// ── Step 2: BFS to collect the full org ───────────────────────────────────
 
-console.log(`Building org subset from ${ROOT_UID}...`)
+// Build parent → children map
 const childrenMap = new Map<string, string[]>()
 for (const u of allUsers) {
-  if (u.manager) {
+  if (u.manager && u.manager !== u.uid) {
     if (!childrenMap.has(u.manager)) childrenMap.set(u.manager, [])
     childrenMap.get(u.manager)!.push(u.uid)
   }
 }
 
+// Auto-detect org root: the person with no manager or a self-referencing one
+const rootUser = allUsers.find((u) => !u.manager || u.manager === u.uid)
+if (!rootUser) throw new Error('Could not detect org root — no user with missing or self-referencing manager')
+const rootUid = rootUser.uid
+console.log(`Building org from detected root: ${rootUser.cn} (${rootUid})`)
+
 const orgUids = new Set<string>()
-const queue = [ROOT_UID]
+const queue = [rootUid]
 while (queue.length > 0) {
   const uid = queue.shift()!
   if (orgUids.has(uid)) continue
   orgUids.add(uid)
-  for (const child of childrenMap.get(uid) ?? []) {
-    queue.push(child)
-  }
+  for (const child of childrenMap.get(uid) ?? []) queue.push(child)
 }
+
 console.log(`  Org size: ${orgUids.size} people`)
 
 // ── Step 3: Parse org YAML hierarchy ──────────────────────────────────────
@@ -243,7 +247,7 @@ for (const uid of orgUids) {
     l: u.l ?? '',
     rhatLocation: u.rhatLocation ?? '',
     rhatHireDate: u.rhatHireDate ?? '',
-    managerUid: u.manager && orgUids.has(u.manager) ? u.manager : null,
+    managerUid: u.manager && u.manager !== u.uid && orgUids.has(u.manager) ? u.manager : null,
     directReports: u.directReports ?? 0,
     totalReports: u.totalReports ?? 0,
     teamId,
@@ -259,7 +263,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
 
 const baseline: BaselineData = {
   importedAt: new Date().toISOString(),
-  rootUid: ROOT_UID,
+  rootUid: rootUid,
   people,
   teams,
 }

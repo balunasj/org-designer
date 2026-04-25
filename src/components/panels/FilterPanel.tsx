@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { X } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { ROLE_LABELS } from '@/lib/role-colors'
+import { teamColor } from '@/lib/team-colors'
 
 export function FilterPanel() {
   const filters = useAppStore((s) => s.filters)
@@ -9,13 +10,16 @@ export function FilterPanel() {
   const clearFilters = useAppStore((s) => s.clearFilters)
   const effectiveState = useAppStore((s) => s.effectiveState)
 
-  const { geos, countries, managers } = useMemo(() => {
-    if (!effectiveState) return { geos: [], countries: [], managers: [] }
+  const { geos, countries, managers, teams } = useMemo(() => {
+    if (!effectiveState) return { geos: [], countries: [], managers: [], teams: [] }
     const people = Object.values(effectiveState.people)
+    const teamIds = [...new Set(people.map((p) => p.teamId).filter(Boolean) as string[])]
     return {
       geos: [...new Set(people.map((p) => p.rhatGeo).filter(Boolean))].sort(),
       countries: [...new Set(people.map((p) => p.co).filter(Boolean))].sort(),
       managers: people.filter((p) => p.directReports > 0).sort((a, b) => a.cn.localeCompare(b.cn)),
+      teams: teamIds.map((id) => ({ id, name: effectiveState.teams[id]?.name ?? id }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     }
   }, [effectiveState])
 
@@ -23,10 +27,11 @@ export function FilterPanel() {
     filters.geos.length > 0 ||
     filters.countries.length > 0 ||
     filters.jobRoles.length > 0 ||
+    filters.teams.length > 0 ||
     filters.titleSearch ||
     filters.managerUid
 
-  function toggleMulti(field: 'geos' | 'countries' | 'jobRoles', value: string) {
+  function toggleMulti(field: 'geos' | 'countries' | 'jobRoles' | 'teams', value: string) {
     const current = filters[field]
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value]
     setFilters({ [field]: next })
@@ -115,6 +120,35 @@ export function FilterPanel() {
         selected={filters.countries}
         onToggle={(v) => toggleMulti('countries', v)}
       />
+
+      {/* Team */}
+      {teams.length > 0 && (
+        <div>
+          <div className="text-xs text-gray-500 mb-1.5">Team</div>
+          <div className="flex flex-wrap gap-1">
+            {teams.map(({ id, name }) => {
+              const active = filters.teams.includes(id)
+              const color = teamColor(id)
+              return (
+                <button
+                  key={id}
+                  onClick={() => toggleMulti('teams', id)}
+                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors flex items-center gap-1 ${
+                    active ? 'text-white' : 'bg-white text-gray-600 border-gray-200'
+                  }`}
+                  style={active ? { backgroundColor: color, borderColor: color } : undefined}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: active ? 'rgba(255,255,255,0.7)' : color }}
+                  />
+                  {name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Manager */}
       <div>

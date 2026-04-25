@@ -20,6 +20,8 @@ export function applyOverlay(baseline: BaselineData, overlay: Overlay): Effectiv
       id: team.id,
       name: team.name,
       managerUid: team.managerUid,
+      teamType: team.type,
+      description: team.description || undefined,
     }
     if (team.managerUid) {
       scopeAssignments[team.id] = team.managerUid
@@ -96,6 +98,30 @@ export function applyOverlay(baseline: BaselineData, overlay: Overlay): Effectiv
       case 'scope_rename': {
         const scope = scopeNodes[action.scopeId]
         if (scope) scopeNodes[action.scopeId] = { ...scope, name: action.toName }
+        break
+      }
+
+      case 'add_person': {
+        people[action.person.uid] = { ...action.person, directReports: 0, totalReports: 0 }
+        break
+      }
+
+      case 'edit_person': {
+        const person = people[action.uid]
+        if (person) {
+          people[action.uid] = { ...person, ...action.updates, uid: action.uid }
+        }
+        break
+      }
+
+      case 'delete_person': {
+        // Reassign direct reports to the deleted person's manager
+        for (const p of Object.values(people)) {
+          if (p.managerUid === action.uid) {
+            people[p.uid] = { ...p, managerUid: action.reassignTo }
+          }
+        }
+        delete people[action.uid]
         break
       }
     }

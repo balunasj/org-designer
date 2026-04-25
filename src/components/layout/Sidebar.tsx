@@ -1,8 +1,8 @@
-import { BarChart2, Filter, FolderOpen } from 'lucide-react'
+import { BarChart2, Filter, Settings } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { MetricsDashboard } from '@/components/panels/MetricsDashboard'
 import { FilterPanel } from '@/components/panels/FilterPanel'
-import { ScenarioPanel } from '@/components/panels/ScenarioPanel'
+import { ConfigPanel } from '@/components/panels/ConfigPanel'
 import { ROLE_LABELS } from '@/lib/role-colors'
 
 export function Sidebar() {
@@ -10,9 +10,9 @@ export function Sidebar() {
   const setSidebarTab = useAppStore((s) => s.setSidebarTab)
 
   const tabs = [
-    { id: 'metrics' as const, icon: <BarChart2 className="w-4 h-4" />, label: 'Metrics' },
-    { id: 'filters' as const, icon: <Filter className="w-4 h-4" />, label: 'Filters' },
-    { id: 'scenarios' as const, icon: <FolderOpen className="w-4 h-4" />, label: 'Scenarios' },
+    { id: 'metrics' as const,   icon: <BarChart2 className="w-4 h-4" />,    label: 'Metrics' },
+    { id: 'filters' as const,   icon: <Filter className="w-4 h-4" />,        label: 'Filters' },
+    { id: 'configure' as const, icon: <Settings className="w-4 h-4" />,      label: 'Configure' },
   ]
 
   return (
@@ -37,9 +37,9 @@ export function Sidebar() {
 
       {/* Panel content */}
       <div className="flex-1 overflow-y-auto">
-        {sidebarTab === 'metrics' && <MetricsDashboard />}
-        {sidebarTab === 'filters' && <FilterPanel />}
-        {sidebarTab === 'scenarios' && <ScenarioPanel />}
+        {sidebarTab === 'metrics'   && <MetricsDashboard />}
+        {sidebarTab === 'filters'   && <FilterPanel />}
+        {sidebarTab === 'configure' && <ConfigPanel />}
       </div>
 
       {/* Color legend */}

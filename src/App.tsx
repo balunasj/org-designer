@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@/store'
 import { OrgChart } from '@/components/chart/OrgChart'
+import { BreadcrumbBar } from '@/components/chart/BreadcrumbBar'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Toolbar } from '@/components/layout/Toolbar'
 
@@ -24,9 +25,12 @@ export default function App() {
       <Toolbar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-hidden">
-          <OrgChart />
-        </main>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <BreadcrumbBar />
+          <main className="flex-1 overflow-hidden">
+            <OrgChart />
+          </main>
+        </div>
       </div>
     </div>
   )
