@@ -227,9 +227,9 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
           {fields.reportCounts && data.isManager && (
             <div className="mt-1 flex items-center justify-end gap-1 text-xs text-gray-500">
               <Users className="h-3 w-3" />
-              <span>{data.directReports}</span>
+              <span>{data.directReports.toLocaleString()}</span>
               <span className="text-gray-300">/</span>
-              <span>{data.totalReports}</span>
+              <span>{data.totalReports.toLocaleString()}</span>
             </div>
           )}
         </div>

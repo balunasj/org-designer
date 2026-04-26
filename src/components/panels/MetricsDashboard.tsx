@@ -59,9 +59,7 @@ export function MetricsDashboard() {
     const managers = people.filter((p) => p.directReports > 0).length
     const ics = total - managers
     const ratio = managers > 0 ? (ics / managers).toFixed(1) : '—'
-    const spans = people.filter((p) => p.directReports > 0).map((p) => p.directReports)
-    const avgSpan =
-      spans.length > 0 ? (spans.reduce((a, b) => a + b, 0) / spans.length).toFixed(1) : '—'
+    const avgSpan = managers > 0 ? (ics / managers).toFixed(1) : '—'
 
     const byGeo = countBy(people, (p) => p.rhatGeo || 'Unknown')
     const byCountry = countBy(people, (p) => p.co || 'Unknown')
@@ -136,7 +134,7 @@ export function MetricsDashboard() {
           <StatCard
             label="Avg Span"
             value={metrics.avgSpan}
-            sub="direct reports/manager"
+            sub="ICs per manager"
             pending={isPending}
           />
         </div>
