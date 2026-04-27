@@ -4,7 +4,7 @@
 ![Coverage](https://img.shields.io/badge/coverage-lib%20%7C%20store-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-> An interactive org chart tool for exploring and redesigning team structure — without touching the source of truth.
+An interactive organizational chart for exploring and redesigning team structures.
 
 Org Designer loads a snapshot of your organization from LDAP and lets you experiment with structure through drag-and-drop, filtering, and metrics. Nothing is ever written back.
 
@@ -42,6 +42,12 @@ Open http://localhost:5173.
 ---
 
 ## Architecture
+
+**Frontend:** React 19 · TypeScript · Vite · Tailwind CSS 4 · Zustand (state) · ReactFlow (graph rendering) · dagre (automatic layout)
+
+**Backend:** Node.js · Express — serves `baseline.json` and persists scenario files via a small REST API
+
+**Data pipeline:** Python 3 scripts — `ldif_to_json.py` converts LDAP LDIF output to JSON, `enrich_users.py` adds geocoding and report counts; `import.ts` (tsx) merges user data with org YAML to produce the baseline
 
 ```
 org-designer/
