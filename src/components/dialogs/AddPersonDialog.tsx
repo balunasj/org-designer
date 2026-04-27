@@ -17,9 +17,9 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
   const isEdit = !!editPerson
 
   const [name, setName] = useState(editPerson?.cn ?? '')
-  const [role, setRole] = useState(editPerson?.rhatJobRole ?? ROLE_LABELS[0].role)
-  const [title, setTitle] = useState(editPerson?.rhatJobTitle ?? ROLE_LABELS[0].role)
-  const [geo, setGeo] = useState(editPerson?.rhatGeo ?? '')
+  const [role, setRole] = useState(editPerson?.jobRole ?? ROLE_LABELS[0].role)
+  const [title, setTitle] = useState(editPerson?.jobTitle ?? ROLE_LABELS[0].role)
+  const [geo, setGeo] = useState(editPerson?.geo ?? '')
   const [country, setCountry] = useState(editPerson?.co ?? '')
 
   const nameRef = useRef<HTMLInputElement>(null)
@@ -30,7 +30,7 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
   const geos = Array.from(
     new Set(
       Object.values(effectiveState?.people ?? {})
-        .map((p) => p.rhatGeo)
+        .map((p) => p.geo)
         .filter(Boolean),
     ),
   ).sort()
@@ -61,10 +61,10 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
         updates: {
           cn: name.trim(),
           displayName: name.trim(),
-          rhatPreferredLastName: name.trim().split(' ').slice(-1)[0] ?? '',
-          rhatJobTitle: title.trim() || role,
-          rhatJobRole: role,
-          rhatGeo: geo,
+          preferredLastName: name.trim().split(' ').slice(-1)[0] ?? '',
+          jobTitle: title.trim() || role,
+          jobRole: role,
+          geo: geo,
           co: country,
         },
         timestamp,
@@ -76,14 +76,14 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
         uid,
         cn: name.trim(),
         displayName: name.trim(),
-        rhatPreferredLastName: name.trim().split(' ').slice(-1)[0] ?? '',
-        rhatJobTitle: title.trim() || role,
-        rhatJobRole: role,
-        rhatGeo: geo,
+        preferredLastName: name.trim().split(' ').slice(-1)[0] ?? '',
+        jobTitle: title.trim() || role,
+        jobRole: role,
+        geo: geo,
         co: country,
         l: '',
-        rhatLocation: '',
-        rhatHireDate: '',
+        location: '',
+        hireDate: '',
         managerUid,
         directReports: 0,
         totalReports: 0,

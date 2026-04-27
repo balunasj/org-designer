@@ -20,13 +20,13 @@ export function matchesFilter(
   people: Record<string, PersonRecord>,
 ): boolean {
   if (filters.managerUid && !isUnderManager(person, filters.managerUid, people)) return false
-  if (filters.geos.length > 0 && !filters.geos.includes(person.rhatGeo)) return false
+  if (filters.geos.length > 0 && !filters.geos.includes(person.geo)) return false
   if (filters.countries.length > 0 && !filters.countries.includes(person.co)) return false
-  if (filters.jobRoles.length > 0 && !filters.jobRoles.includes(person.rhatJobRole)) return false
+  if (filters.jobRoles.length > 0 && !filters.jobRoles.includes(person.jobRole)) return false
   if (filters.teams.length > 0 && !filters.teams.includes(person.teamId ?? '')) return false
   if (filters.titleSearch) {
     const search = filters.titleSearch.toLowerCase()
-    const inTitle = person.rhatJobTitle.toLowerCase().includes(search)
+    const inTitle = person.jobTitle.toLowerCase().includes(search)
     const inName = person.cn.toLowerCase().includes(search)
     if (!inTitle && !inName) return false
   }

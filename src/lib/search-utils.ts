@@ -33,8 +33,8 @@ function scorePerson(q: string, p: PersonRecord): number {
   const cn = p.cn.toLowerCase()
   const display = p.displayName.toLowerCase()
   const uid = p.uid.toLowerCase()
-  const title = (p.rhatJobTitle ?? '').toLowerCase()
-  const geo = (p.rhatGeo ?? '').toLowerCase()
+  const title = (p.jobTitle ?? '').toLowerCase()
+  const geo = (p.geo ?? '').toLowerCase()
   const country = (p.co ?? '').toLowerCase()
 
   // Exact match on primary identifiers

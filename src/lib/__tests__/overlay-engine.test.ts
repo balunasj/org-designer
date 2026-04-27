@@ -98,14 +98,14 @@ describe('applyOverlay — edit_person', () => {
         {
           type: 'edit_person',
           uid: 'ic1',
-          updates: { cn: 'Eve Updated', rhatJobTitle: 'Staff Engineer' },
+          updates: { cn: 'Eve Updated', jobTitle: 'Staff Engineer' },
           timestamp: '',
         },
       ],
     }
     const result = applyOverlay(bl, overlay)
     expect(result.people['ic1'].cn).toBe('Eve Updated')
-    expect(result.people['ic1'].rhatJobTitle).toBe('Staff Engineer')
+    expect(result.people['ic1'].jobTitle).toBe('Staff Engineer')
     expect(result.people['ic1'].uid).toBe('ic1') // uid cannot be overridden
   })
 })

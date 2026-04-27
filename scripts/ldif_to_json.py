@@ -1,10 +1,30 @@
 #!/usr/bin/env python3
 """
 Convert LDIF format to JSON for faster client-side parsing.
+
+Translates vendor-specific LDAP field names to the generic schema
+expected by all_users.json (see docs/import-schema.md).
 """
 
 import sys
 import json
+
+# Map LDAP-specific attribute names to the generic schema field names.
+# Attributes not listed here are passed through unchanged.
+FIELD_MAP = {
+    'rhatPreferredLastName': 'preferredLastName',
+    'rhatJobTitle': 'jobTitle',
+    'rhatJobRole': 'jobRole',
+    'rhatGeo': 'geo',
+    'rhatLocation': 'location',
+    'rhatHireDate': 'hireDate',
+    'rhatPrimaryMail': 'primaryMail',
+    'rhatOriginalHireDate': 'originalHireDate',
+    'rhatPreferredAlias': 'preferredAlias',
+    'rhatSocialURL': 'socialURL',
+    'rhatPronouns': 'pronouns',
+    'rhatOfficeLocation': 'officeLocation',
+}
 
 
 def parse_ldif(ldif_text):
@@ -39,6 +59,7 @@ def parse_ldif(ldif_text):
             if ':' in line:
                 field, value = line.split(':', 1)
                 value = value.strip()
+                out_field = FIELD_MAP.get(field, field)
 
                 if field == 'uid':
                     current_uid = value
@@ -53,23 +74,23 @@ def parse_ldif(ldif_text):
                         current_user['manager'] = value
                 elif field == 'rhatSocialURL':
                     # Handle multiple social URLs
-                    if 'rhatSocialURL' not in current_user:
-                        current_user['rhatSocialURL'] = []
+                    if 'socialURL' not in current_user:
+                        current_user['socialURL'] = []
 
                     # Parse format: "Type->URL" or just "URL"
                     if '->' in value:
                         type_part, url_part = value.split('->', 1)
-                        current_user['rhatSocialURL'].append({
+                        current_user['socialURL'].append({
                             'type': type_part.strip(),
                             'url': url_part.strip()
                         })
                     else:
-                        current_user['rhatSocialURL'].append({
+                        current_user['socialURL'].append({
                             'type': 'Other',
                             'url': value
                         })
                 else:
-                    current_user[field] = value
+                    current_user[out_field] = value
 
     # Don't forget the last user
     if current_user and current_uid:

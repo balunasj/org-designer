@@ -43,7 +43,7 @@ describe('searchPeople', () => {
         uid: 'p1',
         cn: 'Zara Unique',
         displayName: 'Zara',
-        rhatJobTitle: 'Staff Engineer',
+        jobTitle: 'Staff Engineer',
       }),
     }
     const { results } = searchPeople('staff', people, 10)
@@ -56,7 +56,7 @@ describe('searchPeople', () => {
         uid: 'p1',
         cn: 'Unique Name Zz',
         displayName: 'Unique',
-        rhatJobTitle: 'Distinguished Engineer',
+        jobTitle: 'Distinguished Engineer',
       }),
     }
     const { results } = searchPeople('guished', people, 10)
@@ -73,8 +73,8 @@ describe('searchPeople', () => {
   it('sorts by score descending, then alphabetically', () => {
     // Two people with same score: substring match in both
     const people = {
-      z: makePerson({ uid: 'z', cn: 'Zebra Engineer', displayName: 'Zebra', rhatJobTitle: '' }),
-      a: makePerson({ uid: 'a', cn: 'Apple Engineer', displayName: 'Apple', rhatJobTitle: '' }),
+      z: makePerson({ uid: 'z', cn: 'Zebra Engineer', displayName: 'Zebra', jobTitle: '' }),
+      a: makePerson({ uid: 'a', cn: 'Apple Engineer', displayName: 'Apple', jobTitle: '' }),
     }
     const { results } = searchPeople('engineer', people, 10)
     expect(results[0].uid).toBe('a') // 'Apple' < 'Zebra' alphabetically

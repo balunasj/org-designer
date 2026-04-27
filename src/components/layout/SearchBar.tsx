@@ -198,7 +198,7 @@ interface ResultItemProps {
 
 function ResultItem({ result, isHighlighted, onSelect, onHover }: ResultItemProps) {
   const { person } = result
-  const location = [person.rhatGeo, person.co].filter(Boolean).join(' · ')
+  const location = [person.geo, person.co].filter(Boolean).join(' · ')
   return (
     <li
       role="option"
@@ -213,7 +213,7 @@ function ResultItem({ result, isHighlighted, onSelect, onHover }: ResultItemProp
         <span className="flex-shrink-0 text-xs text-gray-400">@{person.uid}</span>
       </div>
       <div className="mt-0.5 truncate text-xs text-gray-400">
-        {[person.rhatJobTitle, location].filter(Boolean).join(' · ')}
+        {[person.jobTitle, location].filter(Boolean).join(' · ')}
       </div>
     </li>
   )

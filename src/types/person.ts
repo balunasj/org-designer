@@ -2,14 +2,14 @@ export interface PersonRecord {
   uid: string
   cn: string
   displayName: string
-  rhatPreferredLastName: string
-  rhatJobTitle: string
-  rhatJobRole: string
-  rhatGeo: string
+  preferredLastName: string
+  jobTitle: string
+  jobRole: string
+  geo: string
   co: string
   l: string
-  rhatLocation: string
-  rhatHireDate: string
+  location: string
+  hireDate: string
   managerUid: string | null
   directReports: number
   totalReports: number

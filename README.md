@@ -12,7 +12,7 @@ Org Designer loads a snapshot of your organization from LDAP and lets you experi
 
 ## Quickstart
 
-**Prerequisites:** Node 20+, Python 3.10+, VPN access to Red Hat LDAP (for data refresh only)
+**Prerequisites:** Node 20+, Python 3.10+, LDAP access (for data refresh only)
 
 ```bash
 make deps          # install Node dependencies
@@ -89,7 +89,7 @@ org-designer/
 ```
 LDAP  →  ldif_to_json.py  →  enrich_users.py  →  all_users.json
                                                          │
-org.git YAML ────────────────────────────────────────────┤
+org YAML dir ────────────────────────────────────────────┤
                                                          ▼
                                                    import.ts
                                                          │
@@ -110,11 +110,25 @@ org.git YAML ──────────────────────�
 
 ---
 
+## Bringing your own data
+
+Org Designer is data-source agnostic. The built-in LDAP adapter (`scripts/ldif_to_json.py` + `scripts/enrich_users.py`) works against any LDAP directory that returns standard attributes. To connect a different data source (Azure AD, Okta, CSV export, etc.), write an adapter that outputs `data/all_users.json` in the documented schema, then set:
+
+```bash
+ALL_USERS_PATH=/path/to/your/output.json make import
+```
+
+See **[docs/import-schema.md](docs/import-schema.md)** for the full schema, field definitions, and an example adapter outline.
+
+Org structure (team groupings, hierarchies) is loaded from a directory of YAML files. Set `ORG_FLEET_PATH` to your YAML directory, or omit it to import people only (no team assignments).
+
+---
+
 ## Commands
 
 ```bash
 make deps            # install Node dependencies
-make fetch-users     # pull org data from LDAP → data/all_users.json (VPN required)
+make fetch-users     # pull org data from LDAP → data/all_users.json (LDAP access required)
 make import          # rebuild data/baseline.json from all_users.json + org YAML
 make dev             # start dev server (Vite + API)
 make build           # production bundle → dist/

@@ -10,8 +10,8 @@ export const ROLE_COLORS: Record<string, string> = {
 
 export const DEFAULT_ROLE_COLOR = '#868E96'
 
-export function roleColor(rhatJobRole: string): string {
-  return ROLE_COLORS[rhatJobRole] ?? DEFAULT_ROLE_COLOR
+export function roleColor(jobRole: string): string {
+  return ROLE_COLORS[jobRole] ?? DEFAULT_ROLE_COLOR
 }
 
 export const ROLE_LABELS: Array<{ role: string; color: string }> = [

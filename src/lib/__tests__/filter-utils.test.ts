@@ -60,7 +60,7 @@ describe('matchesFilter', () => {
 
   it('filters by title search (substring in title)', () => {
     const f = { ...defaultFilters, titleSearch: 'Senior' }
-    expect(matchesFilter(people['ic1'], f, people)).toBe(true) // rhatJobTitle: 'Senior Engineer'
+    expect(matchesFilter(people['ic1'], f, people)).toBe(true) // jobTitle: 'Senior Engineer'
     expect(matchesFilter(people['vp1'], f, people)).toBe(false)
   })
 

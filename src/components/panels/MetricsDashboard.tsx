@@ -61,9 +61,9 @@ export function MetricsDashboard() {
     const ratio = managers > 0 ? (ics / managers).toFixed(1) : '—'
     const avgSpan = managers > 0 ? (ics / managers).toFixed(1) : '—'
 
-    const byGeo = countBy(people, (p) => p.rhatGeo || 'Unknown')
+    const byGeo = countBy(people, (p) => p.geo || 'Unknown')
     const byCountry = countBy(people, (p) => p.co || 'Unknown')
-    const byRole = countBy(people, (p) => p.rhatJobRole || 'Unknown')
+    const byRole = countBy(people, (p) => p.jobRole || 'Unknown')
     const byTeam = countBy(people, (p) => p.teamId ?? '')
 
     return { total, managers, ics, ratio, avgSpan, byGeo, byCountry, byRole, byTeam }

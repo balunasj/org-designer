@@ -65,8 +65,8 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
   const setOpenMenu = useAppStore((s) => s.setOpenMenu)
 
   const menuOpen = openMenuNodeId === id
-  const color = roleColor(data.rhatJobRole)
-  const abbr = roleAbbreviation(data.rhatJobTitle)
+  const color = roleColor(data.jobRole)
+  const abbr = roleAbbreviation(data.jobTitle)
 
   const [dialogMode, setDialogMode] = useState<'add' | 'edit' | null>(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLButtonElement | null>(null)
@@ -177,7 +177,7 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
             <span
               className="flex-shrink-0 rounded px-1.5 py-0.5 font-mono text-xs text-white"
               style={{ backgroundColor: color }}
-              title={data.rhatJobTitle}
+              title={data.jobTitle}
             >
               {abbr}
             </span>
@@ -185,15 +185,15 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
 
           {/* Job title */}
           {fields.title && (
-            <div className="mt-0.5 truncate text-xs text-gray-500" title={data.rhatJobTitle}>
-              {data.rhatJobTitle || '—'}
+            <div className="mt-0.5 truncate text-xs text-gray-500" title={data.jobTitle}>
+              {data.jobTitle || '—'}
             </div>
           )}
 
           {/* Location (geo · country) */}
           {fields.location && (
             <div className="mt-0.5 truncate text-xs text-gray-400">
-              {data.rhatGeo} · {data.co}
+              {data.geo} · {data.co}
             </div>
           )}
 
@@ -201,15 +201,15 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
           {fields.city && data.l && <div className="truncate text-xs text-gray-400">{data.l}</div>}
 
           {/* Hire date */}
-          {fields.hireDate && data.rhatHireDate && (
+          {fields.hireDate && data.hireDate && (
             <div className="truncate text-xs text-gray-400">
-              Hired {formatHireDate(data.rhatHireDate)}
+              Hired {formatHireDate(data.hireDate)}
             </div>
           )}
 
           {/* Tenure */}
-          {fields.tenure && data.rhatHireDate && (
-            <div className="truncate text-xs text-gray-400">{formatTenure(data.rhatHireDate)}</div>
+          {fields.tenure && data.hireDate && (
+            <div className="truncate text-xs text-gray-400">{formatTenure(data.hireDate)}</div>
           )}
 
           {/* Team */}

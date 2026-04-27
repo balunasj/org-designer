@@ -15,7 +15,7 @@ export function FilterPanel() {
     const people = Object.values(effectiveState.people)
     const teamIds = [...new Set(people.map((p) => p.teamId).filter(Boolean) as string[])]
     return {
-      geos: [...new Set(people.map((p) => p.rhatGeo).filter(Boolean))].sort(),
+      geos: [...new Set(people.map((p) => p.geo).filter(Boolean))].sort(),
       countries: [...new Set(people.map((p) => p.co).filter(Boolean))].sort(),
       managers: people.filter((p) => p.directReports > 0).sort((a, b) => a.cn.localeCompare(b.cn)),
       teams: teamIds

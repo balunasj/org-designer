@@ -21,7 +21,7 @@ import: data/baseline.json ## (Re-)import org data → data/baseline.json
 data/baseline.json: data/all_users.json
 	npm run import
 
-data/all_users.json: ## Fetch from LDAP and enrich (requires VPN + ldap-utils)
+data/all_users.json: ## Fetch from LDAP and enrich (requires LDAP access + ldap-utils)
 	@mkdir -p data
 	@echo "Fetching from LDAP..."
 	ldapsearch -x employeeType=Employee $(LDAP_ATTRS) > data/all_users_ldif
@@ -32,7 +32,7 @@ data/all_users.json: ## Fetch from LDAP and enrich (requires VPN + ldap-utils)
 	@rm -f data/all_users_ldif data/all_users_temp.json
 	@echo "Done — data/all_users.json ready"
 
-fetch-users: ## Fetch LDAP data → data/all_users.json (requires VPN + ldap-utils)
+fetch-users: ## Fetch LDAP data → data/all_users.json (requires LDAP access + ldap-utils)
 	@rm -f data/all_users.json
 	$(MAKE) data/all_users.json
 
