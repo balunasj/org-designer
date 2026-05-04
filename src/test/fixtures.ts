@@ -55,6 +55,8 @@ export function makeBaseline(overrides: Partial<BaselineData> = {}): BaselineDat
       co: 'US',
       jobRole: 'Senior Leadership',
       teamId: 'team-a',
+      directReports: 2,
+      totalReports: 4,
     }),
     vp1: makePerson({
       uid: 'vp1',
@@ -65,6 +67,8 @@ export function makeBaseline(overrides: Partial<BaselineData> = {}): BaselineDat
       co: 'DE',
       jobRole: 'Engineering',
       teamId: 'team-a',
+      directReports: 2,
+      totalReports: 2,
     }),
     vp2: makePerson({
       uid: 'vp2',

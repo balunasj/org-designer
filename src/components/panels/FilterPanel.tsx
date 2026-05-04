@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { ROLE_LABELS } from '@/lib/role-colors'
@@ -10,27 +10,37 @@ export function FilterPanel() {
   const clearFilters = useAppStore((s) => s.clearFilters)
   const effectiveState = useAppStore((s) => s.effectiveState)
 
-  const { geos, countries, managers, teams } = useMemo(() => {
-    if (!effectiveState) return { geos: [], countries: [], managers: [], teams: [] }
+  const [titleSearch, setTitleSearch] = useState('')
+
+  const { geos, countries, teams, allJobTitles } = useMemo(() => {
+    if (!effectiveState) return { geos: [], countries: [], teams: [], allJobTitles: [] }
     const people = Object.values(effectiveState.people)
     const teamIds = [...new Set(people.map((p) => p.teamId).filter(Boolean) as string[])]
     return {
       geos: [...new Set(people.map((p) => p.geo).filter(Boolean))].sort(),
       countries: [...new Set(people.map((p) => p.co).filter(Boolean))].sort(),
-      managers: people.filter((p) => p.directReports > 0).sort((a, b) => a.cn.localeCompare(b.cn)),
       teams: teamIds
         .map((id) => ({ id, name: effectiveState.teams[id]?.name ?? id }))
         .sort((a, b) => a.name.localeCompare(b.name)),
+      allJobTitles: [...new Set(people.map((p) => p.jobTitle).filter(Boolean))].sort(),
     }
   }, [effectiveState])
+
+  const visibleJobTitles = useMemo(() => {
+    if (!titleSearch.trim()) return []
+    const q = titleSearch.toLowerCase()
+    return allJobTitles
+      .filter((t) => !filters.jobTitles.includes(t) && t.toLowerCase().includes(q))
+      .slice(0, 6)
+  }, [allJobTitles, titleSearch, filters.jobTitles])
 
   const hasFilters =
     filters.geos.length > 0 ||
     filters.countries.length > 0 ||
     filters.jobRoles.length > 0 ||
     filters.teams.length > 0 ||
-    filters.titleSearch ||
-    filters.managerUid
+    filters.jobTitles.length > 0 ||
+    filters.peopleType !== 'all'
 
   function toggleMulti(field: 'geos' | 'countries' | 'jobRoles' | 'teams', value: string) {
     const current = filters[field]
@@ -72,25 +82,71 @@ export function FilterPanel() {
         </div>
       </div>
 
-      {/* Title search */}
+      {/* People type */}
       <div>
-        <label className="mb-1 block text-xs text-gray-500">Title contains</label>
-        <input
-          type="text"
-          value={filters.titleSearch}
-          onChange={(e) => setFilters({ titleSearch: e.target.value })}
-          placeholder="e.g. Engineer, Manager..."
-          className="w-full rounded border border-gray-200 px-2 py-1.5 text-xs focus:border-blue-400 focus:outline-none"
-        />
+        <div className="mb-1.5 text-xs text-gray-500">People type</div>
+        <div className="flex overflow-hidden rounded-lg border border-gray-200 text-xs">
+          {(['all', 'managers', 'ics'] as const).map((type) => (
+            <button
+              key={type}
+              className={`flex-1 py-1.5 capitalize transition-colors ${
+                filters.peopleType === type
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white text-gray-500 hover:bg-gray-50'
+              }`}
+              onClick={() => setFilters({ peopleType: type })}
+            >
+              {type === 'ics' ? 'ICs' : type === 'managers' ? 'Managers' : 'All'}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Geo */}
-      <ChipGroup
-        title="Geo"
-        options={geos}
-        selected={filters.geos}
-        onToggle={(v) => toggleMulti('geos', v)}
-      />
+      {/* Job title */}
+      <div>
+        <div className="mb-1.5 text-xs text-gray-500">Job title</div>
+        <input
+          type="text"
+          value={titleSearch}
+          onChange={(e) => setTitleSearch(e.target.value)}
+          placeholder="Search job titles..."
+          className="w-full rounded border border-gray-200 px-2 py-1.5 text-xs focus:border-blue-400 focus:outline-none"
+        />
+        {visibleJobTitles.length > 0 && (
+          <div className="mt-1 rounded border border-gray-200">
+            {visibleJobTitles.map((title) => (
+              <button
+                key={title}
+                onClick={() => {
+                  setFilters({ jobTitles: [...filters.jobTitles, title] })
+                  setTitleSearch('')
+                }}
+                className="w-full px-2 py-1 text-left text-xs text-gray-600 transition-colors hover:bg-gray-50"
+              >
+                {title}
+              </button>
+            ))}
+          </div>
+        )}
+        {titleSearch.trim() && visibleJobTitles.length === 0 && (
+          <p className="mt-1 text-xs text-gray-400">No matching job titles</p>
+        )}
+        {filters.jobTitles.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {filters.jobTitles.map((title) => (
+              <button
+                key={title}
+                onClick={() =>
+                  setFilters({ jobTitles: filters.jobTitles.filter((t) => t !== title) })
+                }
+                className="rounded-full border border-blue-500 bg-blue-500 px-2 py-0.5 text-xs text-white transition-colors hover:bg-blue-600"
+              >
+                {title}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Job Role */}
       <div>
@@ -113,6 +169,14 @@ export function FilterPanel() {
           })}
         </div>
       </div>
+
+      {/* Geo */}
+      <ChipGroup
+        title="Geo"
+        options={geos}
+        selected={filters.geos}
+        onToggle={(v) => toggleMulti('geos', v)}
+      />
 
       {/* Country */}
       <ChipGroup
@@ -150,23 +214,6 @@ export function FilterPanel() {
           </div>
         </div>
       )}
-
-      {/* Manager */}
-      <div>
-        <label className="mb-1 block text-xs text-gray-500">Under manager</label>
-        <select
-          value={filters.managerUid ?? ''}
-          onChange={(e) => setFilters({ managerUid: e.target.value || null })}
-          className="w-full rounded border border-gray-200 px-2 py-1.5 text-xs focus:border-blue-400 focus:outline-none"
-        >
-          <option value="">All managers</option>
-          {managers.map((m) => (
-            <option key={m.uid} value={m.uid}>
-              {m.cn}
-            </option>
-          ))}
-        </select>
-      </div>
     </div>
   )
 }

@@ -11,8 +11,8 @@ export interface FilterState {
   countries: string[]
   jobRoles: string[]
   teams: string[]
-  titleSearch: string
-  managerUid: string | null
+  jobTitles: string[]
+  peopleType: 'all' | 'managers' | 'ics'
   mode: 'highlight' | 'hide'
 }
 
@@ -103,8 +103,8 @@ const defaultFilters: FilterState = {
   countries: [],
   jobRoles: [],
   teams: [],
-  titleSearch: '',
-  managerUid: null,
+  jobTitles: [],
+  peopleType: 'all',
   mode: 'highlight',
 }
 

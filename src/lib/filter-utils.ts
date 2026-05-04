@@ -1,35 +1,14 @@
 import type { PersonRecord } from '@/types/person'
 import type { FilterState } from '@/store'
 
-function isUnderManager(
-  person: PersonRecord,
-  managerUid: string,
-  people: Record<string, PersonRecord>,
-): boolean {
-  let cur = person.managerUid
-  while (cur) {
-    if (cur === managerUid) return true
-    cur = people[cur]?.managerUid ?? null
-  }
-  return false
-}
-
-export function matchesFilter(
-  person: PersonRecord,
-  filters: FilterState,
-  people: Record<string, PersonRecord>,
-): boolean {
-  if (filters.managerUid && !isUnderManager(person, filters.managerUid, people)) return false
+export function matchesFilter(person: PersonRecord, filters: FilterState): boolean {
   if (filters.geos.length > 0 && !filters.geos.includes(person.geo)) return false
   if (filters.countries.length > 0 && !filters.countries.includes(person.co)) return false
   if (filters.jobRoles.length > 0 && !filters.jobRoles.includes(person.jobRole)) return false
   if (filters.teams.length > 0 && !filters.teams.includes(person.teamId ?? '')) return false
-  if (filters.titleSearch) {
-    const search = filters.titleSearch.toLowerCase()
-    const inTitle = person.jobTitle.toLowerCase().includes(search)
-    const inName = person.cn.toLowerCase().includes(search)
-    if (!inTitle && !inName) return false
-  }
+  if (filters.jobTitles.length > 0 && !filters.jobTitles.includes(person.jobTitle)) return false
+  if (filters.peopleType === 'managers' && person.directReports === 0) return false
+  if (filters.peopleType === 'ics' && person.directReports > 0) return false
   return true
 }
 
@@ -39,8 +18,8 @@ export function hasActiveFilters(filters: FilterState): boolean {
     filters.countries.length > 0 ||
     filters.jobRoles.length > 0 ||
     filters.teams.length > 0 ||
-    filters.titleSearch.length > 0 ||
-    filters.managerUid !== null
+    filters.jobTitles.length > 0 ||
+    filters.peopleType !== 'all'
   )
 }
 
@@ -50,7 +29,7 @@ export function computeFilteredIds(
 ): { matchIds: Set<string>; ancestorIds: Set<string> } {
   const matchIds = new Set<string>()
   for (const [uid, person] of Object.entries(people)) {
-    if (matchesFilter(person, filters, people)) matchIds.add(uid)
+    if (matchesFilter(person, filters)) matchIds.add(uid)
   }
 
   // For hide mode: preserve ancestors of matches so the tree stays connected

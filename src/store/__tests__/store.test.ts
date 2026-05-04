@@ -31,8 +31,8 @@ function resetStore() {
       countries: [],
       jobRoles: [],
       teams: [],
-      titleSearch: '',
-      managerUid: null,
+      jobTitles: [],
+      peopleType: 'all',
       mode: 'highlight',
     },
   })

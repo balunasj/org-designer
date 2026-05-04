@@ -160,11 +160,22 @@ export function MetricsDashboard() {
         </Section>
 
         <Section title="By Country">
-          {Object.entries(metrics.byCountry)
-            .sort((a, b) => b[1] - a[1])
-            .map(([country, count]) => (
+          {(() => {
+            const sorted = Object.entries(metrics.byCountry).sort((a, b) => b[1] - a[1])
+            const rows =
+              sorted.length > 8
+                ? [
+                    ...sorted.slice(0, 7),
+                    ['Other', sorted.slice(7).reduce((sum, [, n]) => sum + n, 0)] as [
+                      string,
+                      number,
+                    ],
+                  ]
+                : sorted
+            return rows.map(([country, count]) => (
               <Bar key={country} label={country} count={count} total={metrics.total} />
-            ))}
+            ))
+          })()}
         </Section>
 
         {Object.keys(metrics.byTeam).some((k) => k !== '') && (
