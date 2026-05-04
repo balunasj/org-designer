@@ -3,6 +3,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   MiniMap,
   useReactFlow,
   ReactFlowProvider,
@@ -18,10 +19,11 @@ import { ScopeNode } from './ScopeNode'
 import { OrgChartEdge } from './OrgChartEdge'
 import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog'
 import { useAppStore } from '@/store'
-import { computeLayout, getNodeDims } from '@/lib/layout-engine'
+import { computeLayout, getNodeDims, NODE_WIDTH, NODE_HEIGHT } from '@/lib/layout-engine'
 import { computeFilteredIds, hasActiveFilters } from '@/lib/filter-utils'
 import { getSubtreeIds } from '@/lib/hierarchy-utils'
 import type { MoveAction } from '@/types/overlay'
+import { ScanSearch } from 'lucide-react'
 
 const nodeTypes: NodeTypes = {
   person: PersonNode as never,
@@ -34,7 +36,7 @@ const edgeTypes: EdgeTypes = {
 }
 
 function OrgChartInner() {
-  const { fitView, getNodes } = useReactFlow()
+  const { fitView, getNodes, getViewport, setViewport } = useReactFlow()
   const effectiveState = useAppStore((s) => s.effectiveState)
   const baseline = useAppStore((s) => s.baseline)
   const ui = useAppStore((s) => s.ui)
@@ -93,11 +95,32 @@ function OrgChartInner() {
     }
   }, [requestDelete])
 
+  const filterVisibleIds = useMemo(() => {
+    if (!effectiveState || !hasActiveFilters(filters) || filters.mode !== 'hide') return undefined
+    const { matchIds, ancestorIds } = computeFilteredIds(effectiveState.people, filters)
+    return new Set([...matchIds, ...ancestorIds])
+  }, [effectiveState, filters])
+
   const layoutResult = useMemo(() => {
     if (!effectiveState || !baseline) return { nodes: [], edges: [] }
     const viewRoot = ui.viewRootUid ?? baseline.rootUid
-    return computeLayout(effectiveState, ui.expandedNodes, viewRoot, config, ui.hiddenPeersOf)
-  }, [effectiveState, ui.expandedNodes, ui.viewRootUid, ui.hiddenPeersOf, baseline, config])
+    return computeLayout(
+      effectiveState,
+      ui.expandedNodes,
+      viewRoot,
+      config,
+      ui.hiddenPeersOf,
+      filterVisibleIds,
+    )
+  }, [
+    effectiveState,
+    ui.expandedNodes,
+    ui.viewRootUid,
+    ui.hiddenPeersOf,
+    baseline,
+    config,
+    filterVisibleIds,
+  ])
 
   // Keep a ref to the latest layout so snap-back can access it without stale closures
   const layoutResultRef = useRef(layoutResult)
@@ -117,51 +140,89 @@ function OrgChartInner() {
       nodes.map((n) => (n.id.startsWith('scope:') ? n : { ...n, data: { ...n.data, viewRootUid } }))
 
     const active = hasActiveFilters(filters)
-    if (!active || !effectiveState) {
+
+    // Hide mode: layout already excludes hidden nodes via filterVisibleIds; just stamp and set
+    if (!active || !effectiveState || filters.mode === 'hide') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setNodes(stampViewRoot(layoutResult.nodes))
       setEdges(layoutResult.edges)
       return
     }
 
-    const { matchIds, ancestorIds } = computeFilteredIds(effectiveState.people, filters)
-
-    if (filters.mode === 'hide') {
-      const visibleIds = new Set([...matchIds, ...ancestorIds])
-      setNodes(
-        stampViewRoot(
-          layoutResult.nodes.filter((n) => n.id.startsWith('scope:') || visibleIds.has(n.id)),
-        ),
-      )
-      setEdges(
-        layoutResult.edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target)),
-      )
-    } else {
-      setNodes(
-        stampViewRoot(
-          layoutResult.nodes.map((n) => {
-            if (n.id.startsWith('scope:')) return n
-            const dimmed = !matchIds.has(n.id)
-            return { ...n, data: { ...n.data, dimmed } }
-          }),
-        ),
-      )
-      setEdges(layoutResult.edges)
-    }
+    // Highlight mode: dim non-matching nodes, keep all nodes in place
+    const { matchIds } = computeFilteredIds(effectiveState.people, filters)
+    setNodes(
+      stampViewRoot(
+        layoutResult.nodes.map((n) => {
+          if (n.id.startsWith('scope:')) return n
+          const dimmed = !matchIds.has(n.id)
+          return { ...n, data: { ...n.data, dimmed } }
+        }),
+      ),
+    )
+    setEdges(layoutResult.edges)
   }, [layoutResult, filters, effectiveState, ui.viewRootUid])
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((nds) => applyNodeChanges(changes, nds))
   }, [])
 
-  // Fit view when layout changes significantly (first load or expand all)
-  const prevNodeCount = useRef(0)
+  // Pan to keep newly expanded nodes in view; fitView for large/initial changes
+  const prevNodeIdsRef = useRef(new Set<string>())
   useEffect(() => {
-    if (Math.abs(nodes.length - prevNodeCount.current) > 3) {
+    const personNodes = nodes.filter((n) => !n.id.startsWith('scope:'))
+    const currentIds = new Set(personNodes.map((n) => n.id))
+    const prevIds = prevNodeIdsRef.current
+    const newIds = [...currentIds].filter((id) => !prevIds.has(id))
+    const isInitialLoad = prevIds.size === 0
+    prevNodeIdsRef.current = currentIds
+
+    if (newIds.length === 0) return
+
+    if (isInitialLoad || newIds.length > 15) {
       setTimeout(() => fitView({ padding: 0.1 }), 50)
+      return
     }
-    prevNodeCount.current = nodes.length
-  }, [nodes.length, fitView])
+
+    // Incremental expansion: pan minimally to keep new nodes in view
+    requestAnimationFrame(() => {
+      const viewport = getViewport()
+      const containerEl = document.querySelector('.react-flow') as HTMLElement
+      if (!containerEl) return
+      const { width: cw, height: ch } = containerEl.getBoundingClientRect()
+
+      const allNodes = getNodes()
+      const newNodes = allNodes.filter((n) => newIds.includes(n.id))
+      if (newNodes.length === 0) return
+
+      const pad = 40
+      let minSx = Infinity,
+        maxSx = -Infinity,
+        maxSy = -Infinity
+      for (const node of newNodes) {
+        const sx = node.position.x * viewport.zoom + viewport.x
+        const sy = node.position.y * viewport.zoom + viewport.y
+        const sw = NODE_WIDTH * viewport.zoom
+        const sh = (node.height ?? NODE_HEIGHT) * viewport.zoom
+        minSx = Math.min(minSx, sx)
+        maxSx = Math.max(maxSx, sx + sw)
+        maxSy = Math.max(maxSy, sy + sh)
+      }
+
+      let dx = 0,
+        dy = 0
+      if (maxSy > ch - pad) dy = ch - pad - maxSy
+      if (maxSx > cw - pad) dx = cw - pad - maxSx
+      if (minSx < pad) dx = pad - minSx
+
+      if (dx !== 0 || dy !== 0) {
+        setViewport(
+          { x: viewport.x + dx, y: viewport.y + dy, zoom: viewport.zoom },
+          { duration: 400 },
+        )
+      }
+    })
+  }, [nodes, fitView, getViewport, getNodes, setViewport])
 
   // Center viewport on a search-selected node after layout settles
   useEffect(() => {
@@ -171,6 +232,28 @@ function OrgChartInner() {
       clearFitViewTarget()
     })
   }, [fitViewTarget, fitView, clearFitViewTarget])
+
+  const focusViewRoot = useCallback(() => {
+    if (!effectiveState) return
+    // Prefer the selected card, then the view root, then the org root
+    const rootUid = ui.selectedNodeId ?? ui.viewRootUid ?? baseline?.rootUid
+    if (!rootUid) return
+    const person = effectiveState.people[rootUid]
+    if (!person) return
+
+    const focusIds = new Set<string>([rootUid])
+    if (person.managerUid) focusIds.add(person.managerUid)
+    for (const [uid, p] of Object.entries(effectiveState.people)) {
+      if (p.managerUid === rootUid) focusIds.add(uid)
+    }
+
+    const renderedIds = new Set(getNodes().map((n) => n.id))
+    const targetNodes = [...focusIds].filter((id) => renderedIds.has(id)).map((id) => ({ id }))
+
+    if (targetNodes.length > 0) {
+      fitView({ nodes: targetNodes, padding: 0.25, duration: 600 })
+    }
+  }, [effectiveState, ui.selectedNodeId, ui.viewRootUid, baseline, getNodes, fitView])
 
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
@@ -414,7 +497,11 @@ function OrgChartInner() {
         selectionKeyCode={null}
       >
         <Background color="#e2e8f0" gap={20} />
-        <Controls />
+        <Controls>
+          <ControlButton onClick={focusViewRoot} title="Focus on current root">
+            <ScanSearch className="h-3.5 w-3.5" />
+          </ControlButton>
+        </Controls>
         <MiniMap
           nodeColor={(node) => {
             if (node.type === 'scope') return '#cbd5e1'

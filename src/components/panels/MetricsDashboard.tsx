@@ -64,9 +64,10 @@ export function MetricsDashboard() {
     const byGeo = countBy(people, (p) => p.geo || 'Unknown')
     const byCountry = countBy(people, (p) => p.co || 'Unknown')
     const byRole = countBy(people, (p) => p.jobRole || 'Unknown')
+    const byTitle = countBy(people, (p) => p.jobTitle || 'Unknown')
     const byTeam = countBy(people, (p) => p.teamId ?? '')
 
-    return { total, managers, ics, ratio, avgSpan, byGeo, byCountry, byRole, byTeam }
+    return { total, managers, ics, ratio, avgSpan, byGeo, byCountry, byRole, byTitle, byTeam }
   }, [effectiveState, childrenMap, deferredScopeRootUid])
 
   if (!metrics) return <div className="p-4 text-sm text-gray-400">No data loaded</div>
@@ -147,6 +148,12 @@ export function MetricsDashboard() {
             ))}
         </Section>
 
+        <Section title="By Country">
+          {capEntries(metrics.byCountry).map(([label, count]) => (
+            <Bar key={label} label={label} count={count} total={metrics.total} />
+          ))}
+        </Section>
+
         <Section title="By Role">
           {ROLE_LABELS.filter(({ role }) => metrics.byRole[role] > 0).map(({ role, color }) => (
             <Bar
@@ -159,23 +166,10 @@ export function MetricsDashboard() {
           ))}
         </Section>
 
-        <Section title="By Country">
-          {(() => {
-            const sorted = Object.entries(metrics.byCountry).sort((a, b) => b[1] - a[1])
-            const rows =
-              sorted.length > 8
-                ? [
-                    ...sorted.slice(0, 7),
-                    ['Other', sorted.slice(7).reduce((sum, [, n]) => sum + n, 0)] as [
-                      string,
-                      number,
-                    ],
-                  ]
-                : sorted
-            return rows.map(([country, count]) => (
-              <Bar key={country} label={country} count={count} total={metrics.total} />
-            ))
-          })()}
+        <Section title="By Title">
+          {capEntries(metrics.byTitle).map(([label, count]) => (
+            <Bar key={label} label={label} count={count} total={metrics.total} />
+          ))}
         </Section>
 
         {Object.keys(metrics.byTeam).some((k) => k !== '') && (
@@ -239,6 +233,15 @@ function Bar({
       <div className="w-8 flex-shrink-0 text-right text-gray-500">{count.toLocaleString()}</div>
     </div>
   )
+}
+
+function capEntries(data: Record<string, number>, max = 8): [string, number][] {
+  const sorted = Object.entries(data).sort((a, b) => b[1] - a[1])
+  if (sorted.length <= max) return sorted
+  return [
+    ...sorted.slice(0, max - 1),
+    ['Other', sorted.slice(max - 1).reduce((sum, [, n]) => sum + n, 0)],
+  ]
 }
 
 function countBy<T>(arr: T[], key: (item: T) => string): Record<string, number> {

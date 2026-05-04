@@ -69,6 +69,7 @@ export interface AppState {
   loadScenario: (name: string) => Promise<void>
   loadScenarioFromJson: (scenario: { name?: string; overlay?: Overlay }) => void
   saveScenario: (name: string) => Promise<void>
+  listScenarios: () => Promise<{ name: string; updatedAt: string }[]>
 
   pushAction: (action: OverlayAction) => void
   pushActions: (actions: OverlayAction[]) => void
@@ -204,6 +205,16 @@ export const useAppStore = create<AppState>()(
         body: JSON.stringify(scenario),
       })
       set({ currentScenarioName: name })
+    },
+
+    listScenarios: async () => {
+      try {
+        const res = await fetch('/api/scenarios')
+        if (!res.ok) return []
+        return (await res.json()) as { name: string; updatedAt: string }[]
+      } catch {
+        return []
+      }
     },
 
     pushAction: (action: OverlayAction) => {

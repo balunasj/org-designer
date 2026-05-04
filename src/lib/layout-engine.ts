@@ -61,6 +61,7 @@ export function computeLayout(
   rootUid: string,
   config?: ConfigState,
   hiddenPeersOf: Set<string> = new Set(),
+  filterVisibleIds?: Set<string>,
 ): { nodes: Node[]; edges: Edge[] } {
   const density = config?.density ?? 'default'
   const direction = config?.direction ?? 'TB'
@@ -91,6 +92,7 @@ export function computeLayout(
     const focusedChild = children.find(([childUid]) => hiddenPeersOf.has(childUid))
     const visibleChildren = focusedChild ? [focusedChild] : children
     for (const [childUid] of visibleChildren) {
+      if (filterVisibleIds && !filterVisibleIds.has(childUid)) continue
       if (!visiblePersonIds.has(childUid)) {
         visiblePersonIds.add(childUid)
         queue.push(childUid)

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { ROLE_LABELS } from '@/lib/role-colors'
-import type { AddPersonAction, EditPersonAction } from '@/types/overlay'
+import type { AddPersonAction, EditPersonAction, OverlayAction } from '@/types/overlay'
 import type { PersonRecord } from '@/types/person'
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
 export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
   const effectiveState = useAppStore((s) => s.effectiveState)
   const pushAction = useAppStore((s) => s.pushAction)
+  const pushActions = useAppStore((s) => s.pushActions)
   const isEdit = !!editPerson
 
   const [name, setName] = useState(editPerson?.cn ?? '')
@@ -21,6 +22,7 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
   const [title, setTitle] = useState(editPerson?.jobTitle ?? ROLE_LABELS[0].role)
   const [geo, setGeo] = useState(editPerson?.geo ?? '')
   const [country, setCountry] = useState(editPerson?.co ?? '')
+  const [count, setCount] = useState(1)
 
   const nameRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -71,27 +73,36 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
       }
       pushAction(action)
     } else {
-      const uid = `placeholder-${Date.now()}`
-      const person: PersonRecord = {
-        uid,
-        cn: name.trim(),
-        displayName: name.trim(),
-        preferredLastName: name.trim().split(' ').slice(-1)[0] ?? '',
-        jobTitle: title.trim() || role,
-        jobRole: role,
-        geo: geo,
-        co: country,
-        l: '',
-        location: '',
-        hireDate: '',
-        managerUid,
-        directReports: 0,
-        totalReports: 0,
-        teamId: null,
-        yamlRoles: [],
+      const baseName = name.trim()
+      const baseTitle = title.trim() || role
+      const makeAction = (index: number): AddPersonAction => {
+        const label = index === 0 ? baseName : `${baseName} (${index + 1})`
+        const person: PersonRecord = {
+          uid: `placeholder-${Date.now()}-${index}`,
+          cn: label,
+          displayName: label,
+          preferredLastName: label.split(' ').slice(-1)[0] ?? '',
+          jobTitle: baseTitle,
+          jobRole: role,
+          geo,
+          co: country,
+          l: '',
+          location: '',
+          hireDate: '',
+          managerUid,
+          directReports: 0,
+          totalReports: 0,
+          teamId: null,
+          yamlRoles: [],
+        }
+        return { type: 'add_person', person, timestamp }
       }
-      const action: AddPersonAction = { type: 'add_person', person, timestamp }
-      pushAction(action)
+      if (count === 1) {
+        pushAction(makeAction(0))
+      } else {
+        const actions: OverlayAction[] = Array.from({ length: count }, (_, i) => makeAction(i))
+        pushActions(actions)
+      }
     }
 
     onClose()
@@ -154,6 +165,37 @@ export function AddPersonDialog({ managerUid, editPerson, onClose }: Props) {
               className="input-base"
             />
           </Field>
+
+          {!isEdit && (
+            <Field label="Count">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCount((c) => Math.max(1, c - 1))}
+                  disabled={count <= 1}
+                  className="flex h-7 w-7 items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={count}
+                  onChange={(e) => setCount(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
+                  className="input-base w-12 text-center"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCount((c) => Math.min(10, c + 1))}
+                  disabled={count >= 10}
+                  className="flex h-7 w-7 items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  +
+                </button>
+              </div>
+            </Field>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <Field label="Geo">

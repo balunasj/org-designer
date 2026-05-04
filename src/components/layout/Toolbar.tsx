@@ -7,19 +7,23 @@ import {
   FileImage,
   FileCode,
   FileText,
-  FileJson,
+  FolderOpen,
+  Save,
+  HardDriveDownload,
+  ChevronDown,
+  Pencil,
+  ChevronRight,
 } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { toPng } from 'html-to-image'
 import { jsPDF } from 'jspdf'
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { SearchBar } from './SearchBar'
 
 const EXPORT_FORMATS = [
   { fmt: 'png' as const, icon: <FileImage className="h-3.5 w-3.5" />, label: 'PNG' },
   { fmt: 'svg' as const, icon: <FileCode className="h-3.5 w-3.5" />, label: 'SVG' },
   { fmt: 'pdf' as const, icon: <FileText className="h-3.5 w-3.5" />, label: 'PDF' },
-  { fmt: 'json' as const, icon: <FileJson className="h-3.5 w-3.5" />, label: 'JSON' },
 ]
 
 export function Toolbar() {
@@ -31,13 +35,14 @@ export function Toolbar() {
   const redoStack = useAppStore((s) => s.redoStack)
   const currentScenarioName = useAppStore((s) => s.currentScenarioName)
   const saveScenario = useAppStore((s) => s.saveScenario)
+  const loadScenario = useAppStore((s) => s.loadScenario)
   const loadScenarioFromJson = useAppStore((s) => s.loadScenarioFromJson)
-  const overlay = useAppStore((s) => s.overlay)
-  const baseline = useAppStore((s) => s.baseline)
+  const listScenarios = useAppStore((s) => s.listScenarios)
 
+  // File input for loading from file
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileLoad = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
@@ -53,16 +58,16 @@ export function Toolbar() {
     e.target.value = ''
   }
 
+  // Scenario name editing
   const [editingName, setEditingName] = useState(false)
   const [draftName, setDraftName] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   const startEditing = () => {
+    setScenarioMenuOpen(false)
     setDraftName(currentScenarioName)
     setEditingName(true)
-    setTimeout(() => {
-      nameInputRef.current?.select()
-    }, 0)
+    setTimeout(() => nameInputRef.current?.select(), 0)
   }
 
   const commitName = () => {
@@ -78,18 +83,49 @@ export function Toolbar() {
     else if (e.key === 'Escape') setEditingName(false)
   }
 
-  const handleExport = async (format: 'png' | 'svg' | 'pdf' | 'json') => {
-    if (format === 'json') {
-      const payload = {
-        name: currentScenarioName,
-        baselineImportedAt: baseline?.importedAt ?? '',
-        overlay,
-      }
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-      download(URL.createObjectURL(blob), `org-${currentScenarioName}.json`)
-      return
-    }
+  // Scenario dropdown menu
+  const [scenarioMenuOpen, setScenarioMenuOpen] = useState(false)
+  const [serverScenarios, setServerScenarios] = useState<{ name: string; updatedAt: string }[]>([])
+  const [showingServerList, setShowingServerList] = useState(false)
+  const scenarioMenuRef = useRef<HTMLDivElement>(null)
 
+  // Close on outside click
+  useEffect(() => {
+    if (!scenarioMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (scenarioMenuRef.current && !scenarioMenuRef.current.contains(e.target as Node)) {
+        setScenarioMenuOpen(false)
+        setShowingServerList(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [scenarioMenuOpen])
+
+  const handleSave = () => {
+    void saveScenario(currentScenarioName)
+    setScenarioMenuOpen(false)
+  }
+
+  const handleLoadFromFile = () => {
+    setScenarioMenuOpen(false)
+    fileInputRef.current?.click()
+  }
+
+  const handleShowServerList = async () => {
+    const list = await listScenarios()
+    setServerScenarios(list)
+    setShowingServerList(true)
+  }
+
+  const handleLoadFromServer = (name: string) => {
+    void loadScenario(name)
+    setScenarioMenuOpen(false)
+    setShowingServerList(false)
+  }
+
+  // Export
+  const handleExport = async (format: 'png' | 'svg' | 'pdf') => {
     const el = document.querySelector('.react-flow') as HTMLElement
     if (!el) return
 
@@ -111,7 +147,6 @@ export function Toolbar() {
         pdf.save(`org-${currentScenarioName}.pdf`)
       }
     } else {
-      // SVG export via serializing the DOM
       const svgEl = el.querySelector('svg')
       if (!svgEl) return
       const blob = new Blob([svgEl.outerHTML], { type: 'image/svg+xml' })
@@ -121,11 +156,21 @@ export function Toolbar() {
 
   return (
     <div className="flex h-11 flex-shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4">
-      {/* Title */}
+      {/* App title */}
       <div className="mr-2 text-sm font-semibold whitespace-nowrap text-gray-700">
         Organization Designer
       </div>
-      <div className="border-l border-gray-200 pl-3">
+
+      {/* Scenario section */}
+      <div className="border-l border-gray-200 pl-3" ref={scenarioMenuRef}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={handleFileLoad}
+        />
+
         {editingName ? (
           <input
             ref={nameInputRef}
@@ -138,15 +183,59 @@ export function Toolbar() {
           />
         ) : (
           <button
-            onClick={startEditing}
-            className="rounded px-1.5 py-0.5 text-xs text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            title="Click to rename scenario"
+            onClick={() => setScenarioMenuOpen((v) => !v)}
+            className="flex items-center gap-1.5 rounded border border-gray-200 px-2.5 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-50"
           >
-            {currentScenarioName}
+            <FolderOpen className="h-3.5 w-3.5 text-gray-400" />
+            <span className="max-w-[140px] truncate font-medium">{currentScenarioName}</span>
+            <ChevronDown className="h-3 w-3 text-gray-400" />
           </button>
+        )}
+
+        {scenarioMenuOpen && (
+          <div className="absolute top-11 left-auto z-50 mt-0.5 min-w-[200px] rounded border border-gray-200 bg-white shadow-lg">
+            <MenuItem
+              icon={<Pencil className="h-3.5 w-3.5" />}
+              label="Rename"
+              onClick={startEditing}
+            />
+            <MenuItem icon={<Save className="h-3.5 w-3.5" />} label="Save" onClick={handleSave} />
+            <div className="my-1 border-t border-gray-100" />
+            <MenuItem
+              icon={<FolderOpen className="h-3.5 w-3.5" />}
+              label="Load from file…"
+              onClick={handleLoadFromFile}
+            />
+            {!showingServerList ? (
+              <MenuItem
+                icon={<HardDriveDownload className="h-3.5 w-3.5" />}
+                label="Load from server…"
+                suffix={<ChevronRight className="h-3 w-3 text-gray-400" />}
+                onClick={handleShowServerList}
+              />
+            ) : serverScenarios.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-gray-400 italic">No saved scenarios</div>
+            ) : (
+              <>
+                <div className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-gray-400 uppercase">
+                  Saved scenarios
+                </div>
+                {serverScenarios.map((s) => (
+                  <button
+                    key={s.name}
+                    onClick={() => handleLoadFromServer(s.name)}
+                    className="flex w-full items-center gap-2 px-4 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    <span className="flex-1 truncate">{s.name}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
         )}
       </div>
 
+      {/* Search */}
       <div className="flex flex-1 justify-center px-4">
         <SearchBar />
       </div>
@@ -177,40 +266,50 @@ export function Toolbar() {
         />
       </div>
 
-      {/* Import */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".json,application/json"
-        className="hidden"
-        onChange={handleImport}
-      />
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        className="flex items-center gap-1.5 rounded border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
-      >
-        <Download className="h-3.5 w-3.5 rotate-180" /> Import
-      </button>
-
       {/* Export */}
       <div className="group relative">
         <button className="flex items-center gap-1.5 rounded border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50">
           <Download className="h-3.5 w-3.5" /> Export
         </button>
-        <div className="absolute top-full right-0 z-50 mt-1 hidden min-w-[100px] rounded border border-gray-200 bg-white shadow-lg group-hover:block">
-          {EXPORT_FORMATS.map(({ fmt, icon, label }) => (
-            <button
-              key={fmt}
-              onClick={() => void handleExport(fmt)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
-            >
-              <span className="text-gray-400">{icon}</span>
-              {label}
-            </button>
-          ))}
+        <div className="absolute top-full right-0 z-50 hidden pt-1 group-hover:block">
+          <div className="min-w-[100px] rounded border border-gray-200 bg-white shadow-lg">
+            {EXPORT_FORMATS.map(({ fmt, icon, label }) => (
+              <button
+                key={fmt}
+                onClick={() => void handleExport(fmt)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
+              >
+                <span className="text-gray-400">{icon}</span>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  suffix,
+}: {
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+  suffix?: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
+    >
+      <span className="text-gray-400">{icon}</span>
+      <span className="flex-1">{label}</span>
+      {suffix}
+    </button>
   )
 }
 
