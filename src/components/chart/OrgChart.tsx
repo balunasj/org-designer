@@ -555,6 +555,7 @@ function OrgChartInner() {
             return data.isManager ? '#1e40af' : '#64748b'
           }}
           style={{ background: '#f8fafc' }}
+          pannable
         />
       </ReactFlow>
     </>
