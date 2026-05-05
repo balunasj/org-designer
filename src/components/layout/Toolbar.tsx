@@ -7,6 +7,7 @@ import {
   FileImage,
   FileCode,
   FileText,
+  FileSpreadsheet,
   FolderOpen,
   Save,
   HardDriveDownload,
@@ -24,6 +25,7 @@ const EXPORT_FORMATS = [
   { fmt: 'png' as const, icon: <FileImage className="h-3.5 w-3.5" />, label: 'PNG' },
   { fmt: 'svg' as const, icon: <FileCode className="h-3.5 w-3.5" />, label: 'SVG' },
   { fmt: 'pdf' as const, icon: <FileText className="h-3.5 w-3.5" />, label: 'PDF' },
+  { fmt: 'csv' as const, icon: <FileSpreadsheet className="h-3.5 w-3.5" />, label: 'CSV' },
 ]
 
 export function Toolbar() {
@@ -36,6 +38,7 @@ export function Toolbar() {
   const currentScenarioName = useAppStore((s) => s.currentScenarioName)
   const overlay = useAppStore((s) => s.overlay)
   const baseline = useAppStore((s) => s.baseline)
+  const effectiveState = useAppStore((s) => s.effectiveState)
   const setScenarioName = useAppStore((s) => s.setScenarioName)
   const loadScenario = useAppStore((s) => s.loadScenario)
   const loadScenarioFromJson = useAppStore((s) => s.loadScenarioFromJson)
@@ -133,7 +136,55 @@ export function Toolbar() {
   }
 
   // Export
-  const handleExport = async (format: 'png' | 'svg' | 'pdf') => {
+  const handleExport = async (format: 'png' | 'svg' | 'pdf' | 'csv') => {
+    if (format === 'csv') {
+      if (!overlay || !baseline || !effectiveState) return
+      const movedUids = new Set(overlay.actions.filter((a) => a.type === 'move').map((a) => a.uid))
+      const csvHeader = [
+        'Effective date (YYYY-MM-DD)',
+        'Worker ID',
+        'Name',
+        'Current Manager Worker ID',
+        'Current Manager Name',
+        'Proposed Manager Worker ID',
+        'Proposed Manager Name',
+        'Old Cost Center',
+        'New Cost Center',
+        'Approvers',
+      ]
+      const rows: string[][] = []
+      for (const uid of movedUids) {
+        const baselinePerson = baseline.people[uid]
+        const effectivePerson = effectiveState.people[uid]
+        if (!baselinePerson || !effectivePerson) continue
+        if (baselinePerson.managerUid === effectivePerson.managerUid) continue
+        const currentMgr = baselinePerson.managerUid
+          ? baseline.people[baselinePerson.managerUid]
+          : null
+        const proposedMgr = effectivePerson.managerUid
+          ? effectiveState.people[effectivePerson.managerUid]
+          : null
+        rows.push([
+          '',
+          baselinePerson.workerId,
+          baselinePerson.cn,
+          currentMgr?.workerId ?? '',
+          currentMgr?.cn ?? '',
+          proposedMgr?.workerId ?? '',
+          proposedMgr?.cn ?? '',
+          baselinePerson.costCenter,
+          baselinePerson.costCenter,
+          '',
+        ])
+      }
+      const csv = [csvHeader, ...rows]
+        .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','))
+        .join('\n')
+      const blob = new Blob([csv], { type: 'text/csv' })
+      download(URL.createObjectURL(blob), `org-changes-${currentScenarioName}.csv`)
+      return
+    }
+
     const el = document.querySelector('.react-flow') as HTMLElement
     if (!el) return
 

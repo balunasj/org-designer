@@ -10,6 +10,9 @@ export interface PersonRecord {
   l: string
   location: string
   hireDate: string
+  workerId: string
+  costCenter: string
+  costCenterDesc: string
   managerUid: string | null
   directReports: number
   totalReports: number

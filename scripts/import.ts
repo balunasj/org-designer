@@ -43,6 +43,9 @@ interface SourceUser {
   l?: string
   location?: string
   hireDate?: string
+  workerId?: string
+  costCenter?: string
+  costCenterDesc?: string
   manager?: string
   directReports?: number
   totalReports?: number
@@ -244,6 +247,9 @@ if (ORG_FLEET_PATH) {
       l: u.l ?? '',
       location: u.location ?? '',
       hireDate: u.hireDate ?? '',
+      workerId: u.workerId ?? '',
+      costCenter: u.costCenter ?? '',
+      costCenterDesc: u.costCenterDesc ?? '',
       managerUid: u.manager && u.manager !== u.uid && orgUids.has(u.manager) ? u.manager : null,
       directReports: u.directReports ?? 0,
       totalReports: u.totalReports ?? 0,
@@ -278,6 +284,9 @@ if (ORG_FLEET_PATH) {
       l: u.l ?? '',
       location: u.location ?? '',
       hireDate: u.hireDate ?? '',
+      workerId: u.workerId ?? '',
+      costCenter: u.costCenter ?? '',
+      costCenterDesc: u.costCenterDesc ?? '',
       managerUid: u.manager && u.manager !== u.uid && orgUids.has(u.manager) ? u.manager : null,
       directReports: u.directReports ?? 0,
       totalReports: u.totalReports ?? 0,
