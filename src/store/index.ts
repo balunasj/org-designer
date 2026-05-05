@@ -91,6 +91,7 @@ export interface UIState {
   viewRootUid: string | null // null = full org from baseline.rootUid
   hiddenPeersOf: Set<string> // uids whose siblings are hidden
   fitViewTarget: string | null // transient: OrgChart centers on this uid then clears it
+  fitViewIntent: { ids: string[] } | { all: true } | null // transient: which nodes to fit after layout
   openMenuNodeId: string | null // which card's hamburger menu is open
 }
 
@@ -138,6 +139,7 @@ export interface AppState {
   togglePeerVisibility: (uid: string) => void
   navigateToNode: (uid: string) => void
   clearFitViewTarget: () => void
+  clearFitViewIntent: () => void
   setOpenMenu: (nodeId: string | null) => void
 
   requestDelete: (uids: string[]) => void
@@ -164,6 +166,7 @@ const defaultUI: UIState = {
   viewRootUid: null,
   hiddenPeersOf: new Set(),
   fitViewTarget: null,
+  fitViewIntent: null,
   openMenuNodeId: null,
 }
 
@@ -312,26 +315,56 @@ export const useAppStore = create<AppState>()(
     },
 
     toggleExpanded: (nodeId: string) => {
-      const { ui } = get()
+      const { ui, effectiveState } = get()
       const next = new Set(ui.expandedNodes)
-      if (next.has(nodeId)) {
-        next.delete(nodeId)
-      } else {
+      const isExpanding = !next.has(nodeId)
+      if (isExpanding) {
         next.add(nodeId)
+      } else {
+        next.delete(nodeId)
       }
-      set({ ui: { ...ui, expandedNodes: next } })
+      // On expand: fit parent + children; on collapse: fit the parent alone
+      let intent: { ids: string[] }
+      if (isExpanding) {
+        const children = Object.values(effectiveState?.people ?? {})
+          .filter((p) => p.managerUid === nodeId)
+          .map((p) => p.uid)
+        intent = { ids: [nodeId, ...children] }
+      } else {
+        // Collapse: zoom out to show the node, all its peers, and their shared parent
+        const managerUid = effectiveState?.people[nodeId]?.managerUid ?? null
+        const siblings = managerUid
+          ? Object.values(effectiveState?.people ?? {})
+              .filter((p) => p.managerUid === managerUid)
+              .map((p) => p.uid)
+          : [nodeId]
+        intent = { ids: managerUid ? [...siblings, managerUid] : siblings }
+      }
+      set({ ui: { ...ui, expandedNodes: next, fitViewIntent: intent } })
     },
 
     expandAll: () => {
       const { ui, effectiveState } = get()
       if (!effectiveState) return
-      set({ ui: { ...ui, expandedNodes: new Set(Object.keys(effectiveState.people)) } })
+      set({
+        ui: {
+          ...ui,
+          expandedNodes: new Set(Object.keys(effectiveState.people)),
+          fitViewIntent: { all: true },
+        },
+      })
     },
 
     collapseAll: () => {
       const { ui, baseline } = get()
       const root = ui.viewRootUid ?? baseline?.rootUid ?? ''
-      set({ ui: { ...ui, expandedNodes: new Set(root ? [root] : []) } })
+      set({
+        ui: {
+          ...ui,
+          expandedNodes: new Set(root ? [root] : []),
+          fitViewIntent: root ? { ids: [root] } : { all: true },
+        },
+      })
     },
 
     setSelected: (nodeId: string | null, additive?: boolean) => {
@@ -387,11 +420,21 @@ export const useAppStore = create<AppState>()(
     },
 
     togglePeerVisibility: (uid: string) => {
-      const { ui } = get()
+      const { ui, effectiveState } = get()
       const next = new Set(ui.hiddenPeersOf)
-      if (next.has(uid)) next.delete(uid)
-      else next.add(uid)
-      set({ ui: { ...ui, hiddenPeersOf: next } })
+      const isHiding = !next.has(uid)
+      if (isHiding) next.add(uid)
+      else next.delete(uid)
+      const managerUid = effectiveState?.people[uid]?.managerUid ?? null
+      const allSiblings = managerUid
+        ? Object.values(effectiveState?.people ?? {})
+            .filter((p) => p.managerUid === managerUid)
+            .map((p) => p.uid)
+        : [uid]
+      // Hide peers: fit focal node + parent (peers gone, show parent-child context)
+      // Show peers: fit focal node + all siblings
+      const intentIds = isHiding ? (managerUid ? [uid, managerUid] : [uid]) : allSiblings
+      set({ ui: { ...ui, hiddenPeersOf: next, fitViewIntent: { ids: intentIds } } })
     },
 
     navigateToNode: (uid: string) => {
@@ -435,6 +478,11 @@ export const useAppStore = create<AppState>()(
     clearFitViewTarget: () => {
       const { ui } = get()
       set({ ui: { ...ui, fitViewTarget: null } })
+    },
+
+    clearFitViewIntent: () => {
+      const { ui } = get()
+      set({ ui: { ...ui, fitViewIntent: null } })
     },
 
     setOpenMenu: (nodeId: string | null) => {

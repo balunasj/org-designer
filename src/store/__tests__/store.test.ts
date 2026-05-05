@@ -24,6 +24,7 @@ function resetStore() {
       viewRootUid: null,
       hiddenPeersOf: new Set(),
       fitViewTarget: null,
+      fitViewIntent: null,
       openMenuNodeId: null,
     },
     filters: {

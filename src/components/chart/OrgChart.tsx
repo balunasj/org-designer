@@ -19,11 +19,22 @@ import { ScopeNode } from './ScopeNode'
 import { OrgChartEdge } from './OrgChartEdge'
 import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog'
 import { useAppStore } from '@/store'
-import { computeLayout, getNodeDims, NODE_WIDTH, NODE_HEIGHT } from '@/lib/layout-engine'
+import { computeLayout, getNodeDims } from '@/lib/layout-engine'
 import { computeFilteredIds, hasActiveFilters } from '@/lib/filter-utils'
 import { getSubtreeIds } from '@/lib/hierarchy-utils'
 import type { MoveAction } from '@/types/overlay'
 import { ScanSearch } from 'lucide-react'
+
+const NAV_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
+  ArrowUp: 'up',
+  k: 'up',
+  ArrowDown: 'down',
+  j: 'down',
+  ArrowLeft: 'left',
+  h: 'left',
+  ArrowRight: 'right',
+  l: 'right',
+}
 
 const nodeTypes: NodeTypes = {
   person: PersonNode as never,
@@ -36,7 +47,7 @@ const edgeTypes: EdgeTypes = {
 }
 
 function OrgChartInner() {
-  const { fitView, getNodes, getViewport, setViewport } = useReactFlow()
+  const { fitView, getNodes } = useReactFlow()
   const effectiveState = useAppStore((s) => s.effectiveState)
   const baseline = useAppStore((s) => s.baseline)
   const ui = useAppStore((s) => s.ui)
@@ -45,6 +56,7 @@ function OrgChartInner() {
   const setSelected = useAppStore((s) => s.setSelected)
   const pushAction = useAppStore((s) => s.pushAction)
   const pushActions = useAppStore((s) => s.pushActions)
+  const selectedNodeId = useAppStore((s) => s.ui.selectedNodeId)
   const selectedNodeIds = useAppStore((s) => s.ui.selectedNodeIds)
   const pendingDeleteUids = useAppStore((s) => s.ui.pendingDeleteUids)
   const requestDelete = useAppStore((s) => s.requestDelete)
@@ -52,6 +64,8 @@ function OrgChartInner() {
   const cancelDelete = useAppStore((s) => s.cancelDelete)
   const fitViewTarget = useAppStore((s) => s.ui.fitViewTarget)
   const clearFitViewTarget = useAppStore((s) => s.clearFitViewTarget)
+  const fitViewIntent = useAppStore((s) => s.ui.fitViewIntent)
+  const clearFitViewIntent = useAppStore((s) => s.clearFitViewIntent)
   const setOpenMenu = useAppStore((s) => s.setOpenMenu)
 
   const shiftRef = useRef(false)
@@ -62,15 +76,74 @@ function OrgChartInner() {
     selectedNodeIdsRef.current = selectedNodeIds
   }, [selectedNodeIds])
 
+  const selectedNodeIdRef = useRef(selectedNodeId)
+  useEffect(() => {
+    selectedNodeIdRef.current = selectedNodeId
+  }, [selectedNodeId])
+
   const pendingDeleteRef = useRef(pendingDeleteUids)
   useEffect(() => {
     pendingDeleteRef.current = pendingDeleteUids
   }, [pendingDeleteUids])
 
+  const navigateByKey = useCallback(
+    (direction: 'up' | 'down' | 'left' | 'right') => {
+      const currentId = selectedNodeIdRef.current
+      if (!currentId) return
+      const all = getNodes().filter((n) => !n.id.startsWith('scope:'))
+      const current = all.find((n) => n.id === currentId)
+      if (!current) return
+      const hasAnyTeam = Object.values(effectiveState?.people ?? {}).some((p) => !!p.teamId)
+      const { w, h } = getNodeDims(config, hasAnyTeam)
+      const cx = current.position.x + w / 2
+      const cy = current.position.y + h / 2
+      let best: { id: string; score: number } | null = null
+      for (const node of all) {
+        if (node.id === currentId) continue
+        const nx = node.position.x + w / 2
+        const ny = node.position.y + h / 2
+        let primaryDelta: number
+        let crossDelta: number
+        if (direction === 'up') {
+          if (ny >= cy) continue
+          primaryDelta = cy - ny
+          crossDelta = Math.abs(cx - nx)
+        } else if (direction === 'down') {
+          if (ny <= cy) continue
+          primaryDelta = ny - cy
+          crossDelta = Math.abs(cx - nx)
+        } else if (direction === 'left') {
+          if (nx >= cx) continue
+          primaryDelta = cx - nx
+          crossDelta = Math.abs(cy - ny)
+        } else {
+          if (nx <= cx) continue
+          primaryDelta = nx - cx
+          crossDelta = Math.abs(cy - ny)
+        }
+        const score = primaryDelta + crossDelta * 0.5
+        if (!best || score < best.score) best = { id: node.id, score }
+      }
+      if (best) {
+        setSelected(best.id)
+        fitView({ nodes: [{ id: best.id }], padding: 0.3, duration: 300 })
+      }
+    },
+    [getNodes, effectiveState, config, setSelected, fitView],
+  )
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'Shift') {
         shiftRef.current = true
+        return
+      }
+      const dir = NAV_KEYS[e.key]
+      if (dir) {
+        const tag = (e.target as HTMLElement).tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        e.preventDefault()
+        navigateByKey(dir)
         return
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -93,7 +166,7 @@ function OrgChartInner() {
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
     }
-  }, [requestDelete])
+  }, [requestDelete, navigateByKey])
 
   const filterVisibleIds = useMemo(() => {
     if (!effectiveState || !hasActiveFilters(filters) || filters.mode !== 'hide') return undefined
@@ -167,62 +240,34 @@ function OrgChartInner() {
     setNodes((nds) => applyNodeChanges(changes, nds))
   }, [])
 
-  // Pan to keep newly expanded nodes in view; fitView for large/initial changes
-  const prevNodeIdsRef = useRef(new Set<string>())
+  // Initial load: fit entire graph once nodes first appear
+  const didInitialFitRef = useRef(false)
   useEffect(() => {
-    const personNodes = nodes.filter((n) => !n.id.startsWith('scope:'))
-    const currentIds = new Set(personNodes.map((n) => n.id))
-    const prevIds = prevNodeIdsRef.current
-    const newIds = [...currentIds].filter((id) => !prevIds.has(id))
-    const isInitialLoad = prevIds.size === 0
-    prevNodeIdsRef.current = currentIds
+    if (didInitialFitRef.current || nodes.length === 0) return
+    didInitialFitRef.current = true
+    setTimeout(() => fitView({ padding: 0.1 }), 50)
+  }, [nodes.length, fitView])
 
-    if (newIds.length === 0) return
-
-    if (isInitialLoad || newIds.length > 15) {
-      setTimeout(() => fitView({ padding: 0.1 }), 50)
-      return
-    }
-
-    // Incremental expansion: pan minimally to keep new nodes in view
+  // Consume fitViewIntent: fit view on specific nodes or the full graph
+  useEffect(() => {
+    if (!fitViewIntent) return
+    clearFitViewIntent()
     requestAnimationFrame(() => {
-      const viewport = getViewport()
-      const containerEl = document.querySelector('.react-flow') as HTMLElement
-      if (!containerEl) return
-      const { width: cw, height: ch } = containerEl.getBoundingClientRect()
-
-      const allNodes = getNodes()
-      const newNodes = allNodes.filter((n) => newIds.includes(n.id))
-      if (newNodes.length === 0) return
-
-      const pad = 40
-      let minSx = Infinity,
-        maxSx = -Infinity,
-        maxSy = -Infinity
-      for (const node of newNodes) {
-        const sx = node.position.x * viewport.zoom + viewport.x
-        const sy = node.position.y * viewport.zoom + viewport.y
-        const sw = NODE_WIDTH * viewport.zoom
-        const sh = (node.height ?? NODE_HEIGHT) * viewport.zoom
-        minSx = Math.min(minSx, sx)
-        maxSx = Math.max(maxSx, sx + sw)
-        maxSy = Math.max(maxSy, sy + sh)
+      if ('all' in fitViewIntent) {
+        fitView({ padding: 0.1, duration: 400 })
+        return
       }
-
-      let dx = 0,
-        dy = 0
-      if (maxSy > ch - pad) dy = ch - pad - maxSy
-      if (maxSx > cw - pad) dx = cw - pad - maxSx
-      if (minSx < pad) dx = pad - minSx
-
-      if (dx !== 0 || dy !== 0) {
-        setViewport(
-          { x: viewport.x + dx, y: viewport.y + dy, zoom: viewport.zoom },
-          { duration: 400 },
-        )
+      const renderedIds = new Set(getNodes().map((n) => n.id))
+      const targetNodes = fitViewIntent.ids
+        .filter((id) => renderedIds.has(id))
+        .map((id) => ({ id }))
+      if (targetNodes.length > 0) {
+        fitView({ nodes: targetNodes, padding: 0.25, duration: 500 })
+      } else {
+        fitView({ padding: 0.1, duration: 400 })
       }
     })
-  }, [nodes, fitView, getViewport, getNodes, setViewport])
+  }, [fitViewIntent, clearFitViewIntent, fitView, getNodes])
 
   // Center viewport on a search-selected node after layout settles
   useEffect(() => {
@@ -495,6 +540,7 @@ function OrgChartInner() {
         nodesConnectable={false}
         elementsSelectable={false}
         selectionKeyCode={null}
+        disableKeyboardA11y
       >
         <Background color="#e2e8f0" gap={20} />
         <Controls>
