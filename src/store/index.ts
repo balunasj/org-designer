@@ -59,7 +59,7 @@ export interface FilterState {
   teams: string[]
   jobTitles: string[]
   peopleType: 'all' | 'managers' | 'ics'
-  mode: 'highlight' | 'hide'
+  mode: 'highlight' | 'include' | 'exclude'
 }
 
 export interface CardFieldToggles {

@@ -1,5 +1,6 @@
 import type { PersonRecord } from '@/types/person'
 import type { FilterState } from '@/store'
+import { buildChildrenMap, getSubtreeIds } from '@/lib/hierarchy-utils'
 
 export function matchesFilter(person: PersonRecord, filters: FilterState): boolean {
   if (filters.geos.length > 0 && !filters.geos.includes(person.geo)) return false
@@ -43,4 +44,25 @@ export function computeFilteredIds(
   }
 
   return { matchIds, ancestorIds }
+}
+
+export function computeExcludedIds(
+  people: Record<string, PersonRecord>,
+  filters: FilterState,
+): Set<string> {
+  if (!hasActiveFilters(filters)) return new Set(Object.keys(people))
+  const childrenMap = buildChildrenMap(people)
+  const excludedIds = new Set<string>()
+  for (const [uid, person] of Object.entries(people)) {
+    if (matchesFilter(person, filters)) {
+      for (const id of getSubtreeIds(uid, people, childrenMap)) {
+        excludedIds.add(id)
+      }
+    }
+  }
+  const visibleIds = new Set<string>()
+  for (const uid of Object.keys(people)) {
+    if (!excludedIds.has(uid)) visibleIds.add(uid)
+  }
+  return visibleIds
 }

@@ -66,7 +66,7 @@ export function FilterPanel() {
       <div>
         <div className="mb-1.5 text-xs text-gray-500">Filter mode</div>
         <div className="flex overflow-hidden rounded-lg border border-gray-200 text-xs">
-          {(['highlight', 'hide'] as const).map((mode) => (
+          {(['highlight', 'include', 'exclude'] as const).map((mode) => (
             <button
               key={mode}
               className={`flex-1 py-1.5 capitalize transition-colors ${
@@ -79,6 +79,11 @@ export function FilterPanel() {
               {mode}
             </button>
           ))}
+        </div>
+        <div className="mt-1 text-xs text-gray-400">
+          {filters.mode === 'highlight' && 'Dim non-matching nodes'}
+          {filters.mode === 'include' && 'Show only matching nodes'}
+          {filters.mode === 'exclude' && 'Remove matching nodes'}
         </div>
       </div>
 

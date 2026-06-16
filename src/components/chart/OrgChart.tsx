@@ -20,7 +20,7 @@ import { OrgChartEdge } from './OrgChartEdge'
 import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog'
 import { useAppStore } from '@/store'
 import { computeLayout, getNodeDims } from '@/lib/layout-engine'
-import { computeFilteredIds, hasActiveFilters } from '@/lib/filter-utils'
+import { computeExcludedIds, computeFilteredIds, hasActiveFilters } from '@/lib/filter-utils'
 import { getSubtreeIds } from '@/lib/hierarchy-utils'
 import type { MoveAction } from '@/types/overlay'
 import { ScanSearch } from 'lucide-react'
@@ -180,9 +180,14 @@ function OrgChartInner() {
   }, [requestDelete, navigateByKey])
 
   const filterVisibleIds = useMemo(() => {
-    if (!effectiveState || !hasActiveFilters(filters) || filters.mode !== 'hide') return undefined
-    const { matchIds, ancestorIds } = computeFilteredIds(effectiveState.people, filters)
-    return new Set([...matchIds, ...ancestorIds])
+    if (!effectiveState || !hasActiveFilters(filters) || filters.mode === 'highlight')
+      return undefined
+    if (filters.mode === 'include') {
+      const { matchIds, ancestorIds } = computeFilteredIds(effectiveState.people, filters)
+      return new Set([...matchIds, ...ancestorIds])
+    }
+    // exclude mode: remove matching subtrees, keep everyone else
+    return computeExcludedIds(effectiveState.people, filters)
   }, [effectiveState, filters])
 
   const layoutResult = useMemo(() => {
@@ -225,8 +230,8 @@ function OrgChartInner() {
 
     const active = hasActiveFilters(filters)
 
-    // Hide mode: layout already excludes hidden nodes via filterVisibleIds; just stamp and set
-    if (!active || !effectiveState || filters.mode === 'hide') {
+    // Include/exclude mode: layout already handles node removal via filterVisibleIds; just stamp and set
+    if (!active || !effectiveState || filters.mode !== 'highlight') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setNodes(stampViewRoot(layoutResult.nodes))
       setEdges(layoutResult.edges)
