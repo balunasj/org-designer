@@ -226,3 +226,69 @@ describe('requestDelete / confirmDelete / cancelDelete', () => {
     expect(useAppStore.getState().effectiveState!.people['ic1']).toBeDefined()
   })
 })
+
+describe('multi-edit via pushActions', () => {
+  it('edits multiple people in a single undo group', () => {
+    const actions = [
+      {
+        type: 'edit_person' as const,
+        uid: 'vp1',
+        updates: { jobRole: 'Design' },
+        timestamp: '',
+      },
+      {
+        type: 'edit_person' as const,
+        uid: 'ic1',
+        updates: { jobRole: 'Design' },
+        timestamp: '',
+      },
+    ]
+    useAppStore.getState().pushActions(actions)
+    const state = useAppStore.getState()
+    expect(state.effectiveState!.people['vp1'].jobRole).toBe('Design')
+    expect(state.effectiveState!.people['ic1'].jobRole).toBe('Design')
+    expect(state.undoStack).toHaveLength(1)
+    expect(state.undoStack[0]).toHaveLength(2)
+  })
+
+  it('undo reverts all multi-edit changes at once', () => {
+    const actions = [
+      {
+        type: 'edit_person' as const,
+        uid: 'vp1',
+        updates: { geo: 'LATAM' },
+        timestamp: '',
+      },
+      {
+        type: 'edit_person' as const,
+        uid: 'mgr1',
+        updates: { geo: 'LATAM' },
+        timestamp: '',
+      },
+    ]
+    useAppStore.getState().pushActions(actions)
+    expect(useAppStore.getState().effectiveState!.people['vp1'].geo).toBe('LATAM')
+    expect(useAppStore.getState().effectiveState!.people['mgr1'].geo).toBe('LATAM')
+
+    useAppStore.getState().undo()
+    expect(useAppStore.getState().effectiveState!.people['vp1'].geo).toBe('EMEA')
+    expect(useAppStore.getState().effectiveState!.people['mgr1'].geo).toBe('NA')
+  })
+
+  it('only updates specified fields, leaving others unchanged', () => {
+    const original = useAppStore.getState().effectiveState!.people['vp1']
+    useAppStore.getState().pushActions([
+      {
+        type: 'edit_person' as const,
+        uid: 'vp1',
+        updates: { co: 'FR' },
+        timestamp: '',
+      },
+    ])
+    const updated = useAppStore.getState().effectiveState!.people['vp1']
+    expect(updated.co).toBe('FR')
+    expect(updated.geo).toBe(original.geo)
+    expect(updated.jobRole).toBe(original.jobRole)
+    expect(updated.cn).toBe(original.cn)
+  })
+})

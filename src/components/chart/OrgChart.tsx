@@ -320,6 +320,8 @@ function OrgChartInner() {
 
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
+      const target = event.target as HTMLElement
+      if (target.closest('button')) return
       setSelected(node.id, event.metaKey || event.ctrlKey)
       setOpenMenu(null)
     },

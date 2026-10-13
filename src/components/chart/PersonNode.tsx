@@ -20,6 +20,7 @@ import { teamColor } from '@/lib/team-colors'
 import { useAppStore } from '@/store'
 import { NODE_WIDTH } from '@/lib/layout-engine'
 import { AddPersonDialog } from '@/components/dialogs/AddPersonDialog'
+import { EditMultipleDialog } from '@/components/dialogs/EditMultipleDialog'
 import type { PersonRecord } from '@/types/person'
 import type { CardFieldToggles, LayoutDirection } from '@/store'
 
@@ -61,6 +62,8 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
   const togglePeerVisibility = useAppStore((s) => s.togglePeerVisibility)
   const requestDelete = useAppStore((s) => s.requestDelete)
   const isSelected = useAppStore((s) => s.ui.selectedNodeIds.has(id))
+  const selectedNodeIds = useAppStore((s) => s.ui.selectedNodeIds)
+  const effectiveState = useAppStore((s) => s.effectiveState)
   const openMenuNodeId = useAppStore((s) => s.ui.openMenuNodeId)
   const setOpenMenu = useAppStore((s) => s.setOpenMenu)
 
@@ -68,7 +71,9 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
   const color = roleColor(data.jobRole)
   const abbr = roleAbbreviation(data.jobTitle)
 
-  const [dialogMode, setDialogMode] = useState<'add' | 'edit' | null>(null)
+  const isMultiSelect = isSelected && selectedNodeIds.size > 1
+
+  const [dialogMode, setDialogMode] = useState<'add' | 'edit' | 'edit-multi' | null>(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLButtonElement | null>(null)
   const isPlaceholder = id.startsWith('placeholder-')
 
@@ -90,12 +95,6 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
 
   const isViewRoot = data.viewRootUid === id
   const isPeerHidden = data.hiddenPeersOf?.has(id) ?? false
-
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setOpenMenu(null)
-    requestDelete([id])
-  }
 
   return (
     <>
@@ -157,15 +156,25 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
               toggleExpanded={toggleExpanded}
               setOpenMenu={setOpenMenu}
               isPlaceholder={isPlaceholder}
+              isMultiSelect={isMultiSelect}
+              multiSelectCount={isMultiSelect ? selectedNodeIds.size : 0}
               onAddReport={() => {
                 setOpenMenu(null)
                 setDialogMode('add')
               }}
               onEditReport={() => {
                 setOpenMenu(null)
-                setDialogMode('edit')
+                setDialogMode(isMultiSelect ? 'edit-multi' : 'edit')
               }}
-              onDelete={handleDelete}
+              onDelete={(e) => {
+                e.stopPropagation()
+                setOpenMenu(null)
+                if (isMultiSelect) {
+                  requestDelete(Array.from(selectedNodeIds))
+                } else {
+                  requestDelete([id])
+                }
+              }}
             />,
             document.body,
           )}
@@ -333,7 +342,18 @@ export const PersonNode = memo(({ id, data }: PersonNodeProps) => {
       </div>
 
       {/* Add/Edit person dialog — portaled to body so it floats above all ReactFlow nodes */}
-      {dialogMode &&
+      {dialogMode === 'edit-multi' &&
+        effectiveState &&
+        createPortal(
+          <EditMultipleDialog
+            people={Array.from(selectedNodeIds)
+              .map((uid) => effectiveState.people[uid])
+              .filter(Boolean)}
+            onClose={() => setDialogMode(null)}
+          />,
+          document.body,
+        )}
+      {(dialogMode === 'add' || dialogMode === 'edit') &&
         createPortal(
           <AddPersonDialog
             managerUid={id}
@@ -355,6 +375,8 @@ interface ContextMenuDropdownProps {
   isViewRoot: boolean
   isPeerHidden: boolean
   isPlaceholder: boolean
+  isMultiSelect: boolean
+  multiSelectCount: number
   setViewRoot: (uid: string | null) => void
   togglePeerVisibility: (uid: string) => void
   toggleExpanded: (nodeId: string) => void
@@ -364,6 +386,8 @@ interface ContextMenuDropdownProps {
   onDelete: (e: React.MouseEvent) => void
 }
 
+const disabledTooltip = 'Not available for multiple selections'
+
 function ContextMenuDropdown({
   btnEl,
   id,
@@ -371,6 +395,8 @@ function ContextMenuDropdown({
   isViewRoot,
   isPeerHidden,
   isPlaceholder,
+  isMultiSelect,
+  multiSelectCount,
   setViewRoot,
   togglePeerVisibility,
   toggleExpanded,
@@ -388,7 +414,9 @@ function ContextMenuDropdown({
     >
       {data.managerUid !== null && (
         <button
-          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
+          className={`w-full px-3 py-1.5 text-left text-xs ${isMultiSelect ? 'cursor-not-allowed text-gray-300' : 'text-gray-700 hover:bg-gray-50'}`}
+          disabled={isMultiSelect}
+          title={isMultiSelect ? disabledTooltip : undefined}
           onClick={(e) => {
             e.stopPropagation()
             if (isViewRoot) {
@@ -404,7 +432,9 @@ function ContextMenuDropdown({
         </button>
       )}
       <button
-        className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
+        className={`w-full px-3 py-1.5 text-left text-xs ${isMultiSelect ? 'cursor-not-allowed text-gray-300' : 'text-gray-700 hover:bg-gray-50'}`}
+        disabled={isMultiSelect}
+        title={isMultiSelect ? disabledTooltip : undefined}
         onClick={(e) => {
           e.stopPropagation()
           togglePeerVisibility(id)
@@ -415,7 +445,9 @@ function ContextMenuDropdown({
       </button>
       {data.hasChildren && (
         <button
-          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
+          className={`w-full px-3 py-1.5 text-left text-xs ${isMultiSelect ? 'cursor-not-allowed text-gray-300' : 'text-gray-700 hover:bg-gray-50'}`}
+          disabled={isMultiSelect}
+          title={isMultiSelect ? disabledTooltip : undefined}
           onClick={(e) => {
             e.stopPropagation()
             toggleExpanded(id)
@@ -429,10 +461,12 @@ function ContextMenuDropdown({
       <div className="my-1 border-t border-gray-100" />
 
       <button
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
+        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${isMultiSelect ? 'cursor-not-allowed text-gray-300' : 'text-gray-700 hover:bg-gray-50'}`}
+        disabled={isMultiSelect}
+        title={isMultiSelect ? disabledTooltip : undefined}
         onClick={onAddReport}
       >
-        <Plus className="h-3 w-3 text-gray-400" />
+        <Plus className={`h-3 w-3 ${isMultiSelect ? 'text-gray-300' : 'text-gray-400'}`} />
         Add new report
       </button>
 
@@ -441,7 +475,7 @@ function ContextMenuDropdown({
         onClick={onEditReport}
       >
         <Pencil className="h-3 w-3 text-gray-400" />
-        {isPlaceholder ? 'Edit card' : 'Edit'}
+        {isMultiSelect ? `Edit ${multiSelectCount}` : isPlaceholder ? 'Edit card' : 'Edit'}
       </button>
 
       {data.managerUid !== null && (
@@ -450,7 +484,7 @@ function ContextMenuDropdown({
           onClick={onDelete}
         >
           <Trash2 className="h-3 w-3" />
-          Delete
+          {isMultiSelect ? `Delete ${multiSelectCount}` : 'Delete'}
         </button>
       )}
     </div>
