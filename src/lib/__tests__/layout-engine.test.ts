@@ -249,7 +249,7 @@ describe('computeLayout maxChildrenPerRow', () => {
     showScopes: false,
   }
 
-  it('wraps children into rows: 5 children with maxPerRow=4 gives 4+1', () => {
+  it('wraps children into grid rows: 5 children with maxPerRow=4 gives 4+1', () => {
     const config: ConfigState = { ...baseConfig, maxChildrenPerRow: 4 }
     const { nodes } = computeLayout(state, expanded, 'boss', config)
 
@@ -257,14 +257,11 @@ describe('computeLayout maxChildrenPerRow', () => {
     const yValues = [...new Set(children.map((n) => n.position.y))].sort((a, b) => a - b)
 
     expect(yValues).toHaveLength(2)
-
-    const row0 = children.filter((n) => n.position.y === yValues[0])
-    const row1 = children.filter((n) => n.position.y === yValues[1])
-    expect(row0).toHaveLength(4)
-    expect(row1).toHaveLength(1)
+    expect(children.filter((n) => n.position.y === yValues[0])).toHaveLength(4)
+    expect(children.filter((n) => n.position.y === yValues[1])).toHaveLength(1)
   })
 
-  it('spaces rows by rankStep in TB direction', () => {
+  it('spaces grid rows by fixed rankStep', () => {
     const config: ConfigState = { ...baseConfig, maxChildrenPerRow: 4 }
     const { nodes } = computeLayout(state, expanded, 'boss', config)
 
@@ -272,12 +269,11 @@ describe('computeLayout maxChildrenPerRow', () => {
     const yValues = [...new Set(children.map((n) => n.position.y))].sort((a, b) => a - b)
     const nodeHeight = computeNodeHeight(allOff)
     const rankGap = 36 // DENSITY_RANKSEP['default']
-    const rankStep = nodeHeight + rankGap
 
-    expect(yValues[1] - yValues[0]).toBe(rankStep)
+    expect(yValues[1] - yValues[0]).toBe(nodeHeight + rankGap)
   })
 
-  it('pushes subtrees below the last grid row to prevent overlap', () => {
+  it('pushes subtrees of non-last-row children below the grid', () => {
     const grandchild = makePerson({ uid: 'gc', cn: 'Frank', managerUid: 'c1' })
     const stateWithGc: EffectiveState = {
       ...state,
@@ -303,10 +299,7 @@ describe('computeLayout maxChildrenPerRow', () => {
     const xValues = [...new Set(children.map((n) => n.position.x))].sort((a, b) => a - b)
 
     expect(xValues).toHaveLength(2)
-
-    const col0 = children.filter((n) => n.position.x === xValues[0])
-    const col1 = children.filter((n) => n.position.x === xValues[1])
-    expect(col0).toHaveLength(4)
-    expect(col1).toHaveLength(1)
+    expect(children.filter((n) => n.position.x === xValues[0])).toHaveLength(4)
+    expect(children.filter((n) => n.position.x === xValues[1])).toHaveLength(1)
   })
 })

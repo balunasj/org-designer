@@ -262,17 +262,18 @@ export function computeLayout(
     }
   }
 
-  // Grid reflow supersedes sort positions for parents exceeding maxPerRow
+  // Grid reflow: wrap children exceeding maxPerRow into a compact grid
+  // (fixed card-width spacing, fixed row height).  Subtrees of non-last-row
+  // children are pushed below the entire grid so peers never appear below
+  // a sibling's reports.
   const maxPerRow = config?.maxChildrenPerRow ?? 0
   const gridChildren = new Set<string>()
   const gridBusPos = new Map<string, number>()
 
   if (maxPerRow > 0) {
-    const rankStep = isLR ? NODE_WIDTH + rankGap : nodeHeight + rankGap
     const nodeSize = isLR ? NODE_WIDTH : nodeHeight
+    const rankStep = nodeSize + rankGap
 
-    // Process parents top-down so all of a parent's grid rows are placed
-    // compactly before any child subtree expands below them.
     const parentsToReflow = [...childrenMap.entries()].filter(([, kids]) => kids.length > maxPerRow)
     const depthCache = new Map<string, number>()
     const depthOf = (uid: string) => {
@@ -303,13 +304,12 @@ export function computeLayout(
           return isLR ? n.x : n.y
         }),
       )
+      const parentCross = isLR ? parentNode.y : parentNode.x
 
       for (let row = 0; row < numRows; row++) {
         const rowKids = kids.slice(row * maxPerRow, (row + 1) * maxPerRow)
         const totalCross = rowKids.length * crossStep - gap
-        const parentCross = isLR ? parentNode.y : parentNode.x
-        const crossSize = isLR ? nodeHeight : NODE_WIDTH
-        const startCross = parentCross - totalCross / 2 + crossSize / 2
+        const startCross = parentCross - totalCross / 2 + (isLR ? nodeHeight : NODE_WIDTH) / 2
         const currentRowRank = baseRank + row * rankStep
         const busPos = currentRowRank - nodeSize / 2 - rankGap / 2
 
@@ -336,9 +336,11 @@ export function computeLayout(
 
       // Push subtrees of non-last-row children below the last grid row
       if (numRows > 1) {
+        const lastRowRank = baseRank + (numRows - 1) * rankStep
         for (let row = 0; row < numRows - 1; row++) {
           const rowKids = kids.slice(row * maxPerRow, (row + 1) * maxPerRow)
-          const pushAmount = (numRows - 1 - row) * rankStep
+          const currentRowRank = baseRank + row * rankStep
+          const pushAmount = lastRowRank - currentRowRank
           for (const kid of rowKids) {
             for (const descId of getDescendantIds(kid)) {
               if (descId === kid) continue
